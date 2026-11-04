@@ -6,6 +6,8 @@ namespace App\Modules\CoreHR\Models;
 
 use App\Models\User;
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Models\LeaveBalance;
+use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\Shift;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Shared\Traits\HasAuditColumns;
@@ -108,5 +110,15 @@ class Employee extends Model
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class, 'employee_id');
+    }
+
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(LeaveBalance::class, 'employee_id');
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class, 'employee_id');
     }
 }

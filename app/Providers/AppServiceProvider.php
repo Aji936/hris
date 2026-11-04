@@ -6,10 +6,18 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Modules\Attendance\Contracts\AttendanceRepositoryInterface;
+use App\Modules\Attendance\Contracts\LeaveBalanceRepositoryInterface;
+use App\Modules\Attendance\Contracts\LeaveRequestRepositoryInterface;
+use App\Modules\Attendance\Contracts\LeaveTypeRepositoryInterface;
 use App\Modules\Attendance\Contracts\ShiftRepositoryInterface;
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Policies\AttendancePolicy;
+use App\Modules\Attendance\Policies\LeaveRequestPolicy;
 use App\Modules\Attendance\Repositories\AttendanceRepository;
+use App\Modules\Attendance\Repositories\LeaveBalanceRepository;
+use App\Modules\Attendance\Repositories\LeaveRequestRepository;
+use App\Modules\Attendance\Repositories\LeaveTypeRepository;
 use App\Modules\Attendance\Repositories\ShiftRepository;
 use App\Modules\CoreHR\Contracts\DepartmentRepositoryInterface;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
@@ -42,6 +50,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(EmployeeRepositoryInterface::class, EmployeeRepository::class);
         $this->app->bind(ShiftRepositoryInterface::class, ShiftRepository::class);
         $this->app->bind(AttendanceRepositoryInterface::class, AttendanceRepository::class);
+        $this->app->bind(LeaveTypeRepositoryInterface::class, LeaveTypeRepository::class);
+        $this->app->bind(LeaveBalanceRepositoryInterface::class, LeaveBalanceRepository::class);
+        $this->app->bind(LeaveRequestRepositoryInterface::class, LeaveRequestRepository::class);
     }
 
     /**
@@ -55,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Position::class, PositionPolicy::class);
         Gate::policy(Employee::class, EmployeePolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
+        Gate::policy(LeaveRequest::class, LeaveRequestPolicy::class);
 
         Gate::before(static function (User $user, string $ability): ?bool {
             if ($user->hasRole(RoleName::SUPERADMIN->value)) {
