@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Modules\CoreHR\Models\Employee;
 use App\Shared\Traits\HasAuditColumns;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -55,5 +57,10 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
         ];
+    }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class, 'user_id');
     }
 }
