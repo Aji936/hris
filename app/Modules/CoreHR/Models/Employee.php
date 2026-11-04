@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\CoreHR\Models;
 
 use App\Models\User;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Models\Shift;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Shared\Traits\HasAuditColumns;
 use Database\Factories\EmployeeFactory;
@@ -27,6 +29,7 @@ class Employee extends Model
         'full_name',
         'department_id',
         'position_id',
+        'shift_id',
         'manager_id',
         'join_date',
         'status',
@@ -87,6 +90,11 @@ class Employee extends Model
         return $this->belongsTo(Position::class, 'position_id');
     }
 
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class, 'shift_id');
+    }
+
     public function manager(): BelongsTo
     {
         return $this->belongsTo(self::class, 'manager_id');
@@ -95,5 +103,10 @@ class Employee extends Model
     public function subordinates(): HasMany
     {
         return $this->hasMany(self::class, 'manager_id');
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'employee_id');
     }
 }

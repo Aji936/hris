@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
+use App\Modules\Attendance\Contracts\AttendanceRepositoryInterface;
+use App\Modules\Attendance\Contracts\ShiftRepositoryInterface;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Policies\AttendancePolicy;
+use App\Modules\Attendance\Repositories\AttendanceRepository;
+use App\Modules\Attendance\Repositories\ShiftRepository;
 use App\Modules\CoreHR\Contracts\DepartmentRepositoryInterface;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
 use App\Modules\CoreHR\Contracts\PositionRepositoryInterface;
@@ -34,6 +40,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DepartmentRepositoryInterface::class, DepartmentRepository::class);
         $this->app->bind(PositionRepositoryInterface::class, PositionRepository::class);
         $this->app->bind(EmployeeRepositoryInterface::class, EmployeeRepository::class);
+        $this->app->bind(ShiftRepositoryInterface::class, ShiftRepository::class);
+        $this->app->bind(AttendanceRepositoryInterface::class, AttendanceRepository::class);
     }
 
     /**
@@ -46,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(Position::class, PositionPolicy::class);
         Gate::policy(Employee::class, EmployeePolicy::class);
+        Gate::policy(Attendance::class, AttendancePolicy::class);
 
         Gate::before(static function (User $user, string $ability): ?bool {
             if ($user->hasRole(RoleName::SUPERADMIN->value)) {
