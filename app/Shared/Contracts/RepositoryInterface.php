@@ -53,4 +53,3 @@ interface RepositoryInterface
      */
     public function delete(Model $model): bool;
 }
-

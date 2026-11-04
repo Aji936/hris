@@ -13,6 +13,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('dashboard');
 });
 
+require __DIR__.'/payroll.php';
 require __DIR__.'/attendance.php';
 require __DIR__.'/core_hr.php';
 require __DIR__.'/rbac.php';

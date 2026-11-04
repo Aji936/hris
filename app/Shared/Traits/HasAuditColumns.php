@@ -7,6 +7,7 @@ namespace App\Shared\Traits;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
  *
  * @property int|string|null $created_by
  * @property int|string|null $updated_by
- * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property Carbon|null $deleted_at
  */
 trait HasAuditColumns
 {
@@ -81,4 +82,3 @@ trait HasAuditColumns
         return $this->belongsTo($userModel, 'updated_by');
     }
 }
-

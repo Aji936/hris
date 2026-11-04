@@ -62,7 +62,7 @@ final class MoneyHelper
 
     public static function roundHalfUp(string $value, int $scale = self::DEFAULT_SCALE): string
     {
-        $offset = '0.' . str_repeat('0', $scale) . '5';
+        $offset = '0.'.str_repeat('0', $scale).'5';
 
         if (str_starts_with($value, '-')) {
             return bcsub($value, $offset, $scale);
@@ -71,4 +71,3 @@ final class MoneyHelper
         return bcadd($value, $offset, $scale);
     }
 }
-

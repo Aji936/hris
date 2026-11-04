@@ -10,12 +10,14 @@ use App\Modules\Attendance\Models\LeaveBalance;
 use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\Shift;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
+use App\Modules\Payroll\Models\EmployeeSalary;
 use App\Shared\Traits\HasAuditColumns;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
@@ -120,5 +122,18 @@ class Employee extends Model
     public function leaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class, 'employee_id');
+    }
+
+    public function salaries(): HasMany
+    {
+        return $this->hasMany(EmployeeSalary::class, 'employee_id');
+    }
+
+    public function activeSalary(): HasOne
+    {
+        return $this->hasOne(EmployeeSalary::class, 'employee_id')
+            ->where('is_active', true)
+            ->orderByDesc('effective_date')
+            ->orderByDesc('id');
     }
 }

@@ -9,7 +9,4 @@ use RuntimeException;
 /**
  * Base exception for business rule violations inside Domain Services.
  */
-class DomainException extends RuntimeException
-{
-}
-
+class DomainException extends RuntimeException {}

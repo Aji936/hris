@@ -31,6 +31,16 @@ use App\Modules\CoreHR\Policies\PositionPolicy;
 use App\Modules\CoreHR\Repositories\DepartmentRepository;
 use App\Modules\CoreHR\Repositories\EmployeeRepository;
 use App\Modules\CoreHR\Repositories\PositionRepository;
+use App\Modules\Payroll\Contracts\EmployeeSalaryRepositoryInterface;
+use App\Modules\Payroll\Contracts\PayrollComponentRepositoryInterface;
+use App\Modules\Payroll\Contracts\SalaryStructureRepositoryInterface;
+use App\Modules\Payroll\Models\EmployeeSalary;
+use App\Modules\Payroll\Models\PayrollComponent;
+use App\Modules\Payroll\Models\SalaryStructure;
+use App\Modules\Payroll\Policies\PayrollPolicy;
+use App\Modules\Payroll\Repositories\EmployeeSalaryRepository;
+use App\Modules\Payroll\Repositories\PayrollComponentRepository;
+use App\Modules\Payroll\Repositories\SalaryStructureRepository;
 use App\Modules\RBAC\Enums\RoleName;
 use App\Modules\RBAC\Policies\RolePolicy;
 use App\Modules\RBAC\Policies\UserPolicy;
@@ -53,6 +63,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(LeaveTypeRepositoryInterface::class, LeaveTypeRepository::class);
         $this->app->bind(LeaveBalanceRepositoryInterface::class, LeaveBalanceRepository::class);
         $this->app->bind(LeaveRequestRepositoryInterface::class, LeaveRequestRepository::class);
+        $this->app->bind(PayrollComponentRepositoryInterface::class, PayrollComponentRepository::class);
+        $this->app->bind(SalaryStructureRepositoryInterface::class, SalaryStructureRepository::class);
+        $this->app->bind(EmployeeSalaryRepositoryInterface::class, EmployeeSalaryRepository::class);
     }
 
     /**
@@ -67,6 +80,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Employee::class, EmployeePolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
         Gate::policy(LeaveRequest::class, LeaveRequestPolicy::class);
+        Gate::policy(PayrollComponent::class, PayrollPolicy::class);
+        Gate::policy(SalaryStructure::class, PayrollPolicy::class);
+        Gate::policy(EmployeeSalary::class, PayrollPolicy::class);
 
         Gate::before(static function (User $user, string $ability): ?bool {
             if ($user->hasRole(RoleName::SUPERADMIN->value)) {
