@@ -7,6 +7,7 @@ namespace App\Modules\Attendance\Repositories;
 use App\Modules\Attendance\Contracts\LeaveTypeRepositoryInterface;
 use App\Modules\Attendance\Models\LeaveType;
 use App\Shared\Repositories\BaseRepository;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * @extends BaseRepository<LeaveType>
@@ -26,5 +27,13 @@ class LeaveTypeRepository extends BaseRepository implements LeaveTypeRepositoryI
             ->first();
 
         return $leaveType;
+    }
+
+    public function getActiveTypes(): Collection
+    {
+        return $this->query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
     }
 }

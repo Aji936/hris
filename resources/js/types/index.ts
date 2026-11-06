@@ -1,4 +1,7 @@
 import { LucideIcon } from 'lucide-react';
+import { type FlashMessages } from './ess';
+
+export * from './ess';
 
 export interface Auth {
     user: User;
@@ -27,6 +30,7 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    flash?: FlashMessages;
     [key: string]: unknown;
 }
 

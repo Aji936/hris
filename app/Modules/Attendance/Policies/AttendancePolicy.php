@@ -16,6 +16,12 @@ class AttendancePolicy
         return $actor->can(PermissionName::ATTENDANCE_VIEW->value);
     }
 
+    public function viewSelf(User $actor): bool
+    {
+        return $actor->can(PermissionName::ATTENDANCE_VIEW_SELF->value)
+            || $actor->can(PermissionName::ATTENDANCE_VIEW->value);
+    }
+
     public function view(User $actor, Attendance $attendance): bool
     {
         if ($actor->can(PermissionName::ATTENDANCE_VIEW->value)) {

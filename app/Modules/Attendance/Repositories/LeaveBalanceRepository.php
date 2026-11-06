@@ -7,6 +7,7 @@ namespace App\Modules\Attendance\Repositories;
 use App\Modules\Attendance\Contracts\LeaveBalanceRepositoryInterface;
 use App\Modules\Attendance\Models\LeaveBalance;
 use App\Shared\Repositories\BaseRepository;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * @extends BaseRepository<LeaveBalance>
@@ -37,5 +38,15 @@ class LeaveBalanceRepository extends BaseRepository implements LeaveBalanceRepos
         $balance = $query->first();
 
         return $balance;
+    }
+
+    public function getBalancesForEmployeeYear(int|string $employeeId, int $year): Collection
+    {
+        return $this->query()
+            ->with('leaveType')
+            ->where('employee_id', $employeeId)
+            ->where('year', $year)
+            ->orderBy('leave_type_id')
+            ->get();
     }
 }

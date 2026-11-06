@@ -11,11 +11,14 @@ use App\Modules\Payroll\Contracts\PayslipRepositoryInterface;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Resources\PayslipResource;
 use App\Modules\Payroll\Services\PayslipPdfService;
+use App\Shared\Support\MoneyHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class PayslipController extends Controller
 {
@@ -25,23 +28,56 @@ class PayslipController extends Controller
         private readonly PayslipPdfService $payslipPdfService,
     ) {}
 
-    public function myPayslips(Request $request): JsonResponse
+    public function myPayslips(Request $request): JsonResponse|InertiaResponse
     {
         Gate::authorize('viewAny', Payslip::class);
 
         /** @var User $actor */
         $actor = $request->user();
         $employee = $this->employeeRepository->findByUserId($actor->id);
+        $employee?->loadMissing(['department', 'position']);
 
-        if ($employee === null) {
-            throw ValidationException::withMessages([
-                'employee' => ['Authenticated user is not linked to an employee profile.'],
-            ]);
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            if ($employee === null) {
+                throw ValidationException::withMessages([
+                    'employee' => ['Authenticated user is not linked to an employee profile.'],
+                ]);
+            }
+
+            $payslips = $this->payslipRepository->paginatePublishedForEmployee($employee->id);
+
+            return PayslipResource::collection($payslips)->response();
         }
 
-        $payslips = $this->payslipRepository->paginatePublishedForEmployee($employee->id);
+        $paginated = $employee !== null
+            ? $this->payslipRepository->paginatePublishedForEmployee($employee->id, 24)
+            : null;
 
-        return PayslipResource::collection($payslips)->response();
+        $collection = $paginated?->getCollection() ?? collect();
+        $latestPayslip = $collection->first();
+
+        $totalNetReceived = '0.00';
+        foreach ($collection as $slip) {
+            $totalNetReceived = MoneyHelper::add($totalNetReceived, (string) $slip->net_salary);
+        }
+
+        return Inertia::render('Payroll/Payslips/MyPayslips', [
+            'hasEmployeeProfile' => $employee !== null,
+            'employee' => $employee === null ? null : [
+                'id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+                'full_name' => $employee->full_name,
+                'department_name' => $employee->department?->name,
+                'position_title' => $employee->position?->title,
+            ],
+            'summary' => [
+                'published_count' => $paginated?->total() ?? 0,
+                'latest_net_salary' => $latestPayslip !== null ? (string) $latestPayslip->net_salary : '0.00',
+                'latest_period_title' => $latestPayslip?->payroll?->title ?? $latestPayslip?->payroll?->payroll_period,
+                'total_net_received' => $totalNetReceived,
+            ],
+            'payslips' => PayslipResource::collection($collection)->resolve(),
+        ]);
     }
 
     public function show(int|string $id): JsonResponse

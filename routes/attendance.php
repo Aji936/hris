@@ -8,6 +8,9 @@ use App\Modules\RBAC\Enums\PermissionName;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('attendance')->name('attendance.')->group(function (): void {
+    Route::get('/', [AttendanceController::class, 'portal'])
+        ->name('index');
+
     Route::get('/records', [AttendanceController::class, 'index'])
         ->middleware('permission:'.PermissionName::ATTENDANCE_VIEW->value)
         ->name('records.index');

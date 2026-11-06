@@ -36,7 +36,7 @@ class PayslipResource extends JsonResource
                 'title' => $this->payroll?->title,
                 'status' => $this->payroll?->status->value,
             ]),
-            'items' => PayslipItemResource::collection($this->whenLoaded('items')),
+            'items' => $this->whenLoaded('items', fn () => PayslipItemResource::collection($this->items)->resolve()),
         ];
     }
 }

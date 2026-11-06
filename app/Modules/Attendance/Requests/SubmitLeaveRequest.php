@@ -27,6 +27,7 @@ class SubmitLeaveRequest extends FormRequest
             'total_days' => ['nullable', 'integer', 'min:1'],
             'reason' => ['required', 'string', 'min:3', 'max:2000'],
             'attachment_path' => ['nullable', 'string', 'max:255'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ];
     }
 }

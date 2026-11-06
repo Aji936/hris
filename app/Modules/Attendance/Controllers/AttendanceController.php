@@ -15,10 +15,14 @@ use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
 use App\Modules\CoreHR\Models\Employee;
 use App\Shared\Exceptions\DomainException;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class AttendanceController extends Controller
 {
@@ -27,6 +31,52 @@ class AttendanceController extends Controller
         private readonly EmployeeRepositoryInterface $employeeRepository,
         private readonly AttendanceService $attendanceService,
     ) {}
+
+    public function portal(Request $request): InertiaResponse
+    {
+        Gate::authorize('viewSelf', Attendance::class);
+
+        /** @var User $actor */
+        $actor = $request->user();
+        $employee = $this->employeeRepository->findByUserId($actor->id);
+        $employee?->loadMissing(['shift', 'department', 'position']);
+
+        $now = CarbonImmutable::now();
+        $today = $now->toDateString();
+        $startOfMonth = $now->startOfMonth()->toDateString();
+        $endOfMonth = $now->endOfMonth()->toDateString();
+
+        $todayRecord = $employee !== null
+            ? $this->attendanceRepository->findByEmployeeAndDate($employee->id, $today)
+            : null;
+
+        $monthlyRecords = $employee !== null
+            ? $this->attendanceRepository->getForEmployeeBetweenDates($employee->id, $startOfMonth, $endOfMonth)
+            : collect();
+
+        return Inertia::render('Attendance/Index', [
+            'employee' => $employee === null ? null : [
+                'id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+                'full_name' => $employee->full_name,
+                'department_name' => $employee->department?->name,
+                'position_title' => $employee->position?->title,
+                'shift' => $employee->shift === null ? null : [
+                    'id' => $employee->shift->id,
+                    'name' => $employee->shift->name,
+                    'start_time' => $employee->shift->start_time,
+                    'end_time' => $employee->shift->end_time,
+                    'late_grace_period_minutes' => $employee->shift->late_grace_period_minutes,
+                ],
+            ],
+            'todayAttendance' => $todayRecord !== null
+                ? (new AttendanceResource($todayRecord))->resolve()
+                : null,
+            'monthlyRecords' => AttendanceResource::collection($monthlyRecords)->resolve(),
+            'currentMonthLabel' => $now->format('F Y'),
+            'serverTime' => $now->toIso8601String(),
+        ]);
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -38,7 +88,7 @@ class AttendanceController extends Controller
         return AttendanceResource::collection($records)->response();
     }
 
-    public function clockIn(ClockInRequest $request): JsonResponse
+    public function clockIn(ClockInRequest $request): JsonResponse|RedirectResponse
     {
         /** @var User $actor */
         $actor = $request->user();
@@ -60,12 +110,16 @@ class AttendanceController extends Controller
             ]);
         }
 
-        return (new AttendanceResource($attendance))
-            ->response()
-            ->setStatusCode(201);
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return (new AttendanceResource($attendance))
+                ->response()
+                ->setStatusCode(201);
+        }
+
+        return redirect()->back()->with('success', 'Clock-in recorded successfully.');
     }
 
-    public function clockOut(ClockOutRequest $request): JsonResponse
+    public function clockOut(ClockOutRequest $request): JsonResponse|RedirectResponse
     {
         /** @var User $actor */
         $actor = $request->user();
@@ -86,13 +140,20 @@ class AttendanceController extends Controller
             ]);
         }
 
-        return (new AttendanceResource($attendance))->response();
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return (new AttendanceResource($attendance))->response();
+        }
+
+        return redirect()->back()->with('success', 'Clock-out recorded successfully.');
     }
 
     private function resolveTargetEmployee(User $actor, int|string|null $requestedEmployeeId): Employee
     {
         if ($requestedEmployeeId !== null) {
-            return $this->employeeRepository->findOrFail($requestedEmployeeId);
+            /** @var Employee $employee */
+            $employee = $this->employeeRepository->findOrFail($requestedEmployeeId);
+
+            return $employee;
         }
 
         $linkedEmployee = $this->employeeRepository->findByUserId($actor->id);

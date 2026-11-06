@@ -9,6 +9,7 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Shared\Repositories\BaseRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * @extends BaseRepository<Attendance>
@@ -54,6 +55,17 @@ class AttendanceRepository extends BaseRepository implements AttendanceRepositor
         $attendance = $query->first();
 
         return $attendance;
+    }
+
+    public function getForEmployeeBetweenDates(int|string $employeeId, string $startDate, string $endDate): Collection
+    {
+        return $this->query()
+            ->with('shift')
+            ->where('employee_id', $employeeId)
+            ->whereDate('date', '>=', $startDate)
+            ->whereDate('date', '<=', $endDate)
+            ->orderByDesc('date')
+            ->get();
     }
 
     public function paginateRecords(array $filters = [], int $perPage = 15): LengthAwarePaginator
