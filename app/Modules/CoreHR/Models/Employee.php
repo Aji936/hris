@@ -11,6 +11,7 @@ use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\Shift;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Modules\Payroll\Models\EmployeeSalary;
+use App\Modules\Payroll\Models\Payslip;
 use App\Shared\Traits\HasAuditColumns;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -135,5 +136,10 @@ class Employee extends Model
             ->where('is_active', true)
             ->orderByDesc('effective_date')
             ->orderByDesc('id');
+    }
+
+    public function payslips(): HasMany
+    {
+        return $this->hasMany(Payslip::class, 'employee_id');
     }
 }

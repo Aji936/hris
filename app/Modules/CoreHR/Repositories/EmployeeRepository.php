@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\CoreHR\Repositories;
 
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
+use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Modules\CoreHR\Models\Employee;
 use App\Shared\Repositories\BaseRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * @extends BaseRepository<Employee>
@@ -78,5 +80,22 @@ class EmployeeRepository extends BaseRepository implements EmployeeRepositoryInt
             ->findOrFail($id);
 
         return $employee;
+    }
+
+    public function getActiveForPayroll(): Collection
+    {
+        return $this->query()
+            ->with([
+                'department',
+                'position',
+                'activeSalary.salaryStructure.components',
+            ])
+            ->whereIn('status', [
+                EmploymentStatus::PERMANENT->value,
+                EmploymentStatus::PROBATION->value,
+                EmploymentStatus::CONTRACT->value,
+            ])
+            ->orderBy('id')
+            ->get();
     }
 }
