@@ -63,12 +63,57 @@ class Payslip extends Model
         static::updating(static function (self $payslip): void {
             $payrollId = $payslip->getOriginal('payroll_id') ?? $payslip->payroll_id;
             self::assertPayrollMutable($payrollId);
+
+            $originalPayslipStatus = $payslip->getOriginal('status');
+            $payslipStatusEnum = $originalPayslipStatus instanceof PayslipStatus
+                ? $originalPayslipStatus
+                : PayslipStatus::tryFrom((string) $originalPayslipStatus);
+
+            if ($payslipStatusEnum !== null && $payslipStatusEnum->isEmployeeVisible()) {
+                $immutablePayslipFields = [
+                    'payroll_id',
+                    'employee_id',
+                    'payslip_number',
+                    'employee_snapshot',
+                    'basic_salary',
+                    'total_allowance',
+                    'total_deduction',
+                    'net_salary',
+                    'attendance_summary',
+                ];
+
+                if ($payslip->isDirty($immutablePayslipFields)) {
+                    throw new DomainException('Published or paid payslips are immutable.');
+                }
+
+                if ($payslip->isDirty('status')) {
+                    $nextStatus = $payslip->status instanceof PayslipStatus
+                        ? $payslip->status
+                        : PayslipStatus::tryFrom((string) $payslip->status);
+
+                    if ($nextStatus === PayslipStatus::DRAFT || ($payslipStatusEnum === PayslipStatus::PAID && $nextStatus !== PayslipStatus::PAID)) {
+                        throw new DomainException('Cannot revert a published or paid payslip.');
+                    }
+                }
+            }
         });
 
-        static::deleting(static function (self $payslip): void {
+        $guardDelete = static function (self $payslip): void {
             $payrollId = $payslip->getOriginal('payroll_id') ?? $payslip->payroll_id;
             self::assertPayrollMutable($payrollId);
-        });
+
+            $originalPayslipStatus = $payslip->getOriginal('status') ?? $payslip->status;
+            $payslipStatusEnum = $originalPayslipStatus instanceof PayslipStatus
+                ? $originalPayslipStatus
+                : PayslipStatus::tryFrom((string) $originalPayslipStatus);
+
+            if ($payslipStatusEnum !== null && $payslipStatusEnum->isEmployeeVisible()) {
+                throw new DomainException('Cannot delete a published or paid payslip.');
+            }
+        };
+
+        static::deleting($guardDelete);
+        static::forceDeleting($guardDelete);
     }
 
     private static function assertPayrollMutable(int|string|null $payrollId): void

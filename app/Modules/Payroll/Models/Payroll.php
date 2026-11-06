@@ -70,11 +70,13 @@ class Payroll extends Model
                 'payroll_period',
                 'start_date',
                 'end_date',
+                'title',
                 'total_gross_amount',
                 'total_deduction_amount',
                 'total_net_amount',
                 'generated_by',
                 'approved_by',
+                'approved_at',
             ];
 
             if ($payroll->isDirty($protectedFields)) {
@@ -89,10 +91,20 @@ class Payroll extends Model
                 if ($targetStatus === null || ! $targetStatus->isImmutable()) {
                     throw new DomainException('Cannot revert an approved, published, or paid payroll batch.');
                 }
+
+                $progressionRank = [
+                    PayrollStatus::APPROVED->value => 1,
+                    PayrollStatus::PUBLISHED->value => 2,
+                    PayrollStatus::PAID->value => 3,
+                ];
+
+                if (($progressionRank[$targetStatus->value] ?? 0) < ($progressionRank[$statusEnum->value] ?? 0)) {
+                    throw new DomainException('Cannot move an immutable payroll batch backward in status.');
+                }
             }
         });
 
-        static::deleting(static function (self $payroll): void {
+        $guardDelete = static function (self $payroll): void {
             $originalStatus = $payroll->getOriginal('status') ?? $payroll->status;
             $statusEnum = $originalStatus instanceof PayrollStatus
                 ? $originalStatus
@@ -101,7 +113,10 @@ class Payroll extends Model
             if ($statusEnum !== null && $statusEnum->isImmutable()) {
                 throw new DomainException('Cannot delete an approved, published, or paid payroll batch.');
             }
-        });
+        };
+
+        static::deleting($guardDelete);
+        static::forceDeleting($guardDelete);
     }
 
     protected static function newFactory(): PayrollFactory

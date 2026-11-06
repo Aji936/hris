@@ -16,13 +16,16 @@ Route::middleware(['auth'])->prefix('core-hr')->name('core-hr.')->group(function
         ->name('employees.store');
 
     Route::get('/employees/{employee}', [EmployeeController::class, 'show'])
+        ->whereNumber('employee')
         ->name('employees.show');
 
     Route::match(['put', 'patch'], '/employees/{employee}', [EmployeeController::class, 'update'])
+        ->whereNumber('employee')
         ->middleware('permission:'.PermissionName::EMPLOYEE_UPDATE->value)
         ->name('employees.update');
 
     Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])
+        ->whereNumber('employee')
         ->middleware('permission:'.PermissionName::EMPLOYEE_DELETE->value)
         ->name('employees.destroy');
 });

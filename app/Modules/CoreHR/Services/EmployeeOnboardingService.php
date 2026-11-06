@@ -64,6 +64,7 @@ class EmployeeOnboardingService
                 'full_name' => $payload['full_name'] ?? $user->name,
                 'department_id' => (int) $payload['department_id'],
                 'position_id' => (int) $payload['position_id'],
+                'shift_id' => isset($payload['shift_id']) ? (int) $payload['shift_id'] : null,
                 'manager_id' => isset($payload['manager_id']) ? (int) $payload['manager_id'] : null,
                 'join_date' => $payload['join_date'],
                 'status' => $status,

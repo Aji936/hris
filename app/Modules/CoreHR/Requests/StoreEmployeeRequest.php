@@ -48,6 +48,7 @@ class StoreEmployeeRequest extends FormRequest
             ],
             'department_id' => ['required', 'integer', 'exists:departments,id'],
             'position_id' => ['required', 'integer', 'exists:positions,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shifts,id'],
             'manager_id' => ['nullable', 'integer', 'exists:employees,id'],
             'join_date' => ['required', 'date_format:Y-m-d'],
             'status' => ['required', 'string', Rule::enum(EmploymentStatus::class)],

@@ -43,6 +43,7 @@ class UpdateEmployeeRequest extends FormRequest
             'full_name' => ['sometimes', 'required', 'string', 'max:150'],
             'department_id' => ['sometimes', 'required', 'integer', 'exists:departments,id'],
             'position_id' => ['sometimes', 'required', 'integer', 'exists:positions,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shifts,id'],
             'manager_id' => $managerRules,
             'join_date' => ['sometimes', 'required', 'date_format:Y-m-d'],
             'status' => ['sometimes', 'required', 'string', Rule::enum(EmploymentStatus::class)],

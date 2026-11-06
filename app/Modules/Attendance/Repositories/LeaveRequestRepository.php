@@ -80,14 +80,16 @@ class LeaveRequestRepository extends BaseRepository implements LeaveRequestRepos
             ])
             ->when(! $canViewAll, static function (Builder $query) use ($actor, $canViewTeam): void {
                 $query->whereHas('employee', static function (Builder $employeeQuery) use ($actor, $canViewTeam): void {
-                    $employeeQuery->where('user_id', $actor->id);
+                    $employeeQuery->where(static function (Builder $scopeQuery) use ($actor, $canViewTeam): void {
+                        $scopeQuery->where('user_id', $actor->id);
 
-                    if ($canViewTeam) {
-                        $employeeQuery->orWhereHas(
-                            'manager',
-                            static fn (Builder $managerQuery) => $managerQuery->where('user_id', $actor->id),
-                        );
-                    }
+                        if ($canViewTeam) {
+                            $scopeQuery->orWhereHas(
+                                'manager',
+                                static fn (Builder $managerQuery) => $managerQuery->where('user_id', $actor->id),
+                            );
+                        }
+                    });
                 });
             })
             ->when(
