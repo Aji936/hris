@@ -33,7 +33,7 @@ Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function
         ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
         ->name('employee-salaries.store');
 
-    // Monthly Payroll Batches & Approval Engine
+    // Monthly Payroll Batches, Approval Engine & Analytic Reports
     Route::get('/batches', [PayrollBatchController::class, 'index'])
         ->middleware('permission:'.PermissionName::PAYROLL_VIEW->value)
         ->name('batches.index');
@@ -51,7 +51,12 @@ Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function
         ->whereNumber('id')
         ->name('batches.approve');
 
-    // Employee Self-Service (ESS) & Payslip Access
+    Route::get('/batches/{id}/export-csv', [PayrollBatchController::class, 'exportCsv'])
+        ->whereNumber('id')
+        ->middleware('permission:'.PermissionName::PAYROLL_VIEW->value)
+        ->name('batches.export-csv');
+
+    // Employee Self-Service (ESS) & Official Payslip PDF Download
     Route::get('/my-payslips', [PayslipController::class, 'myPayslips'])
         ->name('payslips.mine');
 
@@ -62,4 +67,8 @@ Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function
     Route::get('/payslips/{id}/download', [PayslipController::class, 'download'])
         ->whereNumber('id')
         ->name('payslips.download');
+
+    Route::get('/payslips/{payslipId}/pdf', [PayslipController::class, 'downloadPdf'])
+        ->whereNumber('payslipId')
+        ->name('payslips.pdf');
 });

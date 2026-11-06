@@ -10,18 +10,21 @@ use App\Modules\Payroll\Contracts\PayrollRepositoryInterface;
 use App\Modules\Payroll\Models\Payroll;
 use App\Modules\Payroll\Requests\GeneratePayrollRequest;
 use App\Modules\Payroll\Resources\PayrollResource;
+use App\Modules\Payroll\Services\PayrollReportService;
 use App\Modules\Payroll\Services\PayrollService;
 use App\Shared\Exceptions\DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollBatchController extends Controller
 {
     public function __construct(
         private readonly PayrollRepositoryInterface $payrollRepository,
         private readonly PayrollService $payrollService,
+        private readonly PayrollReportService $payrollReportService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -103,5 +106,15 @@ class PayrollBatchController extends Controller
         }
 
         return (new PayrollResource($approved))->response();
+    }
+
+    public function exportCsv(int|string $id): StreamedResponse
+    {
+        $payroll = $this->payrollRepository->findWithPayslips($id);
+        abort_if($payroll === null, 404);
+
+        Gate::authorize('view', $payroll);
+
+        return $this->payrollReportService->streamBatchSummaryCsv($payroll);
     }
 }

@@ -39,4 +39,26 @@ class PayslipPolicy
     {
         return $this->view($actor, $payslip);
     }
+
+    public function downloadPdf(User $actor, Payslip $payslip): bool
+    {
+        if (! $payslip->status->isEmployeeVisible()) {
+            return false;
+        }
+
+        if ($actor->can(PermissionName::PAYROLL_VIEW->value)) {
+            return true;
+        }
+
+        if (! $actor->can(PermissionName::PAYROLL_VIEW_SELF->value)) {
+            return false;
+        }
+
+        $employee = $payslip->employee;
+        if ($employee === null || $employee->user_id === null) {
+            return false;
+        }
+
+        return (int) $employee->user_id === (int) $actor->id;
+    }
 }
