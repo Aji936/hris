@@ -31,7 +31,12 @@ class EmployeeSalaryResource extends JsonResource
                 'employee_code' => $this->employee?->employee_code,
                 'full_name' => $this->employee?->full_name,
             ]),
-            'salary_structure' => new SalaryStructureResource($this->whenLoaded('salaryStructure')),
+            'salary_structure' => $this->whenLoaded(
+                'salaryStructure',
+                fn () => $this->salaryStructure !== null
+                    ? (new SalaryStructureResource($this->salaryStructure))->resolve()
+                    : null,
+            ),
         ];
     }
 }

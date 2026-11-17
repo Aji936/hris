@@ -6,8 +6,10 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Modules\Attendance\Enums\AttendanceStatus;
+use App\Modules\Attendance\Enums\LeaveRequestStatus;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Models\LeaveBalance;
+use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\LeaveType;
 use App\Modules\Attendance\Models\Shift;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
@@ -419,7 +421,44 @@ class ProductionDemoSeeder extends Seeder
             }
         }
 
-        // 8. Generate & Approve Previous Month's Payroll Cycle (Immutable APPROVED batch + PUBLISHED payslips)
+        // 8. Seed Sample Leave Requests (1 APPROVED & 1 PENDING)
+        $firstEmployee = $allSeededEmployees[2] ?? $allSeededEmployees[0];
+        LeaveRequest::query()->updateOrCreate(
+            [
+                'employee_id' => $firstEmployee->id,
+                'start_date' => $previousMonth->setDay(14)->toDateString(),
+                'end_date' => $previousMonth->setDay(15)->toDateString(),
+            ],
+            [
+                'leave_type_id' => $annualLeave->id,
+                'total_days' => 2,
+                'reason' => 'Annual family gathering out of town',
+                'status' => LeaveRequestStatus::APPROVED->value,
+                'approver_id' => $engManagerUser->id,
+                'approved_at' => $previousMonth->setDay(12)->setTime(10, 30),
+                'created_by' => $firstEmployee->user_id,
+                'updated_by' => $engManagerUser->id,
+            ],
+        );
+
+        $secondEmployee = $allSeededEmployees[3] ?? $allSeededEmployees[1];
+        LeaveRequest::query()->updateOrCreate(
+            [
+                'employee_id' => $secondEmployee->id,
+                'start_date' => $today->addDays(5)->toDateString(),
+                'end_date' => $today->addDays(6)->toDateString(),
+            ],
+            [
+                'leave_type_id' => $annualLeave->id,
+                'total_days' => 2,
+                'reason' => 'Personal administrative matters',
+                'status' => LeaveRequestStatus::PENDING->value,
+                'created_by' => $secondEmployee->user_id,
+                'updated_by' => $secondEmployee->user_id,
+            ],
+        );
+
+        // 9. Generate & Approve Previous Month's Payroll Cycle (Immutable APPROVED batch + PUBLISHED payslips)
         $lastMonthPeriod = $previousMonth->format('Y-m');
         $existingBatch = $payrollRepository->findByPeriod($lastMonthPeriod);
 

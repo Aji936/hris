@@ -23,7 +23,12 @@ class UpdateEmployeeRequest extends FormRequest
     public function rules(): array
     {
         $routeEmployee = $this->route('employee');
-        $employeeId = $routeEmployee instanceof Employee ? $routeEmployee->id : $routeEmployee;
+        $employee = $routeEmployee instanceof Employee
+            ? $routeEmployee
+            : ($routeEmployee !== null ? Employee::query()->find($routeEmployee) : null);
+
+        $employeeId = $employee?->id ?? $routeEmployee;
+        $linkedUserId = $employee?->user_id;
 
         $managerRules = ['nullable', 'integer', 'exists:employees,id'];
         if ($employeeId !== null) {
@@ -40,7 +45,18 @@ class UpdateEmployeeRequest extends FormRequest
                     ->ignore($employeeId)
                     ->whereNull('deleted_at'),
             ],
+            'name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'full_name' => ['sometimes', 'required', 'string', 'max:150'],
+            'email' => [
+                'sometimes',
+                'required',
+                'string',
+                'email',
+                'max:150',
+                Rule::unique('users', 'email')
+                    ->ignore($linkedUserId)
+                    ->whereNull('deleted_at'),
+            ],
             'department_id' => ['sometimes', 'required', 'integer', 'exists:departments,id'],
             'position_id' => ['sometimes', 'required', 'integer', 'exists:positions,id'],
             'shift_id' => ['nullable', 'integer', 'exists:shifts,id'],

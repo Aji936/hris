@@ -292,6 +292,48 @@ class LeaveService
         });
     }
 
+    /**
+     * Update a master LeaveType definition inside a transaction and record an audit log entry.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateLeaveType(LeaveType $leaveType, array $data): LeaveType
+    {
+        return DB::transaction(function () use ($leaveType, $data): LeaveType {
+            $oldValues = [
+                'code' => $leaveType->code,
+                'name' => $leaveType->name,
+                'default_quota_days' => $leaveType->default_quota_days,
+                'is_paid' => $leaveType->is_paid,
+                'requires_attachment' => $leaveType->requires_attachment,
+                'is_active' => $leaveType->is_active,
+            ];
+
+            if (isset($data['code'])) {
+                $data['code'] = strtoupper(trim((string) $data['code']));
+            }
+
+            /** @var LeaveType $updated */
+            $updated = $this->leaveTypeRepository->update($leaveType, $data);
+
+            $this->auditLogService->record(
+                event: 'leave_type.updated',
+                auditable: $updated,
+                oldValues: $oldValues,
+                newValues: [
+                    'code' => $updated->code,
+                    'name' => $updated->name,
+                    'default_quota_days' => $updated->default_quota_days,
+                    'is_paid' => $updated->is_paid,
+                    'requires_attachment' => $updated->requires_attachment,
+                    'is_active' => $updated->is_active,
+                ],
+            );
+
+            return $updated;
+        });
+    }
+
     private function assertApproverAuthorized(LeaveRequest $leaveRequest, User $approver): void
     {
         $employee = $leaveRequest->employee;

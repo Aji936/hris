@@ -9,6 +9,10 @@ use App\Modules\RBAC\Enums\PermissionName;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function (): void {
+    Route::get('/management', [SalaryManagementController::class, 'portal'])
+        ->middleware('permission:'.PermissionName::PAYROLL_VIEW->value)
+        ->name('management');
+
     Route::get('/components', [SalaryManagementController::class, 'listComponents'])
         ->middleware('permission:'.PermissionName::PAYROLL_VIEW->value)
         ->name('components.index');
@@ -16,6 +20,11 @@ Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function
     Route::post('/components', [SalaryManagementController::class, 'storeComponent'])
         ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
         ->name('components.store');
+
+    Route::match(['put', 'patch'], '/components/{component}', [SalaryManagementController::class, 'updateComponent'])
+        ->whereNumber('component')
+        ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
+        ->name('components.update');
 
     Route::get('/structures', [SalaryManagementController::class, 'listStructures'])
         ->middleware('permission:'.PermissionName::PAYROLL_VIEW->value)
@@ -25,6 +34,11 @@ Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function
         ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
         ->name('structures.store');
 
+    Route::match(['put', 'patch'], '/structures/{structure}', [SalaryManagementController::class, 'updateStructure'])
+        ->whereNumber('structure')
+        ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
+        ->name('structures.update');
+
     Route::get('/employee-salaries', [SalaryManagementController::class, 'listEmployeeSalaries'])
         ->middleware('permission:'.PermissionName::PAYROLL_VIEW->value)
         ->name('employee-salaries.index');
@@ -32,6 +46,11 @@ Route::middleware(['auth'])->prefix('payroll')->name('payroll.')->group(function
     Route::post('/employee-salaries', [SalaryManagementController::class, 'assignEmployeeSalary'])
         ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
         ->name('employee-salaries.store');
+
+    Route::match(['put', 'patch'], '/employee-salaries/{employeeSalary}', [SalaryManagementController::class, 'updateEmployeeSalary'])
+        ->whereNumber('employeeSalary')
+        ->middleware('permission:'.PermissionName::PAYROLL_CREATE->value)
+        ->name('employee-salaries.update');
 
     // Monthly Payroll Batches, Approval Engine & Analytic Reports
     Route::get('/batches', [PayrollBatchController::class, 'index'])

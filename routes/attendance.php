@@ -40,4 +40,9 @@ Route::middleware(['auth'])->prefix('attendance')->name('attendance.')->group(fu
             ->whereNumber('id')
             ->name('reject');
     });
+
+    Route::match(['put', 'patch'], '/leave-types/{leaveType}', [LeaveRequestController::class, 'updateLeaveType'])
+        ->whereNumber('leaveType')
+        ->middleware('permission:'.PermissionName::EMPLOYEE_UPDATE->value)
+        ->name('leave-types.update');
 });

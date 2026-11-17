@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { CalendarDays, Clock, LayoutGrid, ReceiptText, Users } from 'lucide-react';
+import { CalendarDays, Clock, Landmark, LayoutGrid, ReceiptText, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const essNavItems: NavItem[] = [
@@ -36,9 +36,16 @@ export function AppSidebar() {
     const hrAdminNavItems: NavItem[] = [];
     if (permissions.includes('employee.view')) {
         hrAdminNavItems.push({
-            title: 'Employee Directory',
+            title: 'Employee & Master Data',
             url: '/core-hr/employees',
             icon: Users,
+        });
+    }
+    if (permissions.includes('payroll.view')) {
+        hrAdminNavItems.push({
+            title: 'Payroll & Compensation',
+            url: '/payroll/management',
+            icon: Landmark,
         });
     }
 
@@ -58,7 +65,7 @@ export function AppSidebar() {
 
             <SidebarContent className="gap-4">
                 <NavMain label="Employee Self-Service" items={essNavItems} />
-                {hrAdminNavItems.length > 0 && <NavMain label="HR Management" items={hrAdminNavItems} />}
+                {hrAdminNavItems.length > 0 && <NavMain label="HR & Payroll Admin" items={hrAdminNavItems} />}
             </SidebarContent>
 
             <SidebarFooter>

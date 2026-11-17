@@ -130,22 +130,49 @@ class EmployeeOnboardingService
 
             $oldSnapshot = $this->sanitizeAuditPayload([
                 'employee_code' => $employee->employee_code,
+                'full_name' => $employee->full_name,
+                'email' => $employee->user?->email,
                 'department_id' => $employee->department_id,
                 'position_id' => $employee->position_id,
+                'shift_id' => $employee->shift_id,
                 'manager_id' => $employee->manager_id,
                 'status' => $employee->status->value,
                 'salary_grade' => $employee->salary_grade,
+                'basic_salary' => $employee->basic_salary !== null ? (string) $employee->basic_salary : null,
+                'bank_name' => $employee->bank_name,
             ]);
 
             if (isset($payload['status']) && $payload['status'] instanceof EmploymentStatus) {
                 $payload['status'] = $payload['status']->value;
             }
 
-            /** @var Employee $updated */
-            $updated = $this->employeeRepository->update($employee, $payload);
+            if (isset($payload['name']) && ! isset($payload['full_name'])) {
+                $payload['full_name'] = $payload['name'];
+            }
 
-            if (isset($payload['full_name']) && $updated->user !== null) {
-                $updated->user->update(['name' => $payload['full_name']]);
+            // Preserve existing encrypted PII & bank fields when inputs are left blank during edit
+            foreach (['national_id_number', 'tax_id_number', 'bank_account_number', 'bank_name'] as $optionalSensitiveField) {
+                if (array_key_exists($optionalSensitiveField, $payload) && ($payload[$optionalSensitiveField] === null || trim((string) $payload[$optionalSensitiveField]) === '')) {
+                    unset($payload[$optionalSensitiveField]);
+                }
+            }
+
+            $userUpdates = [];
+            if (isset($payload['full_name']) && trim((string) $payload['full_name']) !== '') {
+                $userUpdates['name'] = trim((string) $payload['full_name']);
+            }
+            if (isset($payload['email']) && trim((string) $payload['email']) !== '') {
+                $userUpdates['email'] = trim((string) $payload['email']);
+            }
+
+            $employeePayload = $payload;
+            unset($employeePayload['name'], $employeePayload['email']);
+
+            /** @var Employee $updated */
+            $updated = $this->employeeRepository->update($employee, $employeePayload);
+
+            if ($userUpdates !== [] && $updated->user !== null) {
+                $updated->user->update($userUpdates);
             }
 
             $this->auditLogService->record(

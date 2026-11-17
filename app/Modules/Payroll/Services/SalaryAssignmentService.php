@@ -78,6 +78,86 @@ class SalaryAssignmentService
     }
 
     /**
+     * Update an existing payroll component inside a transaction and record an audit trail.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateComponent(PayrollComponent $component, array $data): PayrollComponent
+    {
+        return DB::transaction(function () use ($component, $data): PayrollComponent {
+            $oldValues = [
+                'code' => $component->code,
+                'name' => $component->name,
+                'type' => $component->type->value,
+                'is_taxable' => $component->is_taxable,
+                'is_fixed' => $component->is_fixed,
+                'formula' => $component->formula,
+                'is_active' => $component->is_active,
+            ];
+
+            $updates = [];
+
+            if (isset($data['code'])) {
+                $normalizedCode = strtoupper(trim((string) $data['code']));
+                $existing = $this->componentRepository->findByCode($normalizedCode);
+                if ($existing !== null && (int) $existing->id !== (int) $component->id) {
+                    throw new DomainException("Payroll component with code [{$normalizedCode}] already exists.");
+                }
+                $updates['code'] = $normalizedCode;
+            }
+
+            if (isset($data['name'])) {
+                $updates['name'] = trim((string) $data['name']);
+            }
+
+            if (isset($data['type'])) {
+                $type = $data['type'] instanceof PayrollComponentType
+                    ? $data['type']
+                    : PayrollComponentType::from(strtoupper((string) $data['type']));
+                $updates['type'] = $type->value;
+            }
+
+            if (array_key_exists('is_taxable', $data)) {
+                $updates['is_taxable'] = (bool) $data['is_taxable'];
+            }
+
+            if (array_key_exists('is_fixed', $data)) {
+                $updates['is_fixed'] = (bool) $data['is_fixed'];
+            }
+
+            if (array_key_exists('formula', $data)) {
+                $updates['formula'] = $data['formula'] !== null && trim((string) $data['formula']) !== ''
+                    ? trim((string) $data['formula'])
+                    : null;
+            }
+
+            if (array_key_exists('is_active', $data)) {
+                $updates['is_active'] = (bool) $data['is_active'];
+            }
+
+            /** @var PayrollComponent $updated */
+            $updated = $this->componentRepository->update($component, $updates);
+
+            $this->auditLogService->record(
+                event: 'payroll.component_updated',
+                auditable: $updated,
+                oldValues: $oldValues,
+                newValues: [
+                    'code' => $updated->code,
+                    'name' => $updated->name,
+                    'type' => $updated->type->value,
+                    'is_taxable' => $updated->is_taxable,
+                    'is_fixed' => $updated->is_fixed,
+                    'formula' => $updated->formula,
+                    'is_active' => $updated->is_active,
+                ],
+            );
+
+            return $updated;
+        });
+    }
+
+    /**
      * Create a salary structure and attach default component amounts using exact DECIMAL(15, 2) strings.
      *
      * @param  array<string, mixed>  $data
@@ -111,6 +191,62 @@ class SalaryAssignmentService
             );
 
             return $structure;
+        });
+    }
+
+    /**
+     * Update a salary structure and optionally resync its component default amounts.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateStructure(SalaryStructure $structure, array $data): SalaryStructure
+    {
+        $syncPayload = array_key_exists('components', $data) && is_array($data['components'])
+            ? $this->normalizeComponentPayload($data['components'])
+            : null;
+
+        return DB::transaction(function () use ($structure, $data, $syncPayload): SalaryStructure {
+            $oldValues = [
+                'name' => $structure->name,
+                'description' => $structure->description,
+                'is_active' => $structure->is_active,
+            ];
+
+            $updates = [];
+            if (isset($data['name'])) {
+                $updates['name'] = trim((string) $data['name']);
+            }
+            if (array_key_exists('description', $data)) {
+                $updates['description'] = $data['description'];
+            }
+            if (array_key_exists('is_active', $data)) {
+                $updates['is_active'] = (bool) $data['is_active'];
+            }
+
+            /** @var SalaryStructure $updated */
+            $updated = $updates !== []
+                ? $this->structureRepository->update($structure, $updates)
+                : $structure;
+
+            if ($syncPayload !== null) {
+                $updated = $this->structureRepository->syncComponents($updated, $syncPayload);
+            } else {
+                $updated->load('components');
+            }
+
+            $this->auditLogService->record(
+                event: 'payroll.salary_structure_updated',
+                auditable: $updated,
+                oldValues: $oldValues,
+                newValues: [
+                    'name' => $updated->name,
+                    'description' => $updated->description,
+                    'is_active' => $updated->is_active,
+                    'component_count' => $updated->components->count(),
+                ],
+            );
+
+            return $updated;
         });
     }
 

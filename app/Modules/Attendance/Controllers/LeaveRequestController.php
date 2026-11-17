@@ -18,11 +18,13 @@ use App\Modules\Attendance\Resources\LeaveRequestResource;
 use App\Modules\Attendance\Services\LeaveService;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
 use App\Modules\CoreHR\Models\Employee;
+use App\Modules\RBAC\Enums\PermissionName;
 use App\Shared\Exceptions\DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -191,6 +193,36 @@ class LeaveRequestController extends Controller
         }
 
         return (new LeaveRequestResource($updated))->response();
+    }
+
+    public function updateLeaveType(Request $request, LeaveType $leaveType): JsonResponse|RedirectResponse
+    {
+        abort_unless((bool) $request->user()?->can(PermissionName::EMPLOYEE_UPDATE->value), 403);
+
+        $validated = $request->validate([
+            'code' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('leave_types', 'code')->ignore($leaveType->id)->whereNull('deleted_at'),
+            ],
+            'name' => ['sometimes', 'required', 'string', 'max:150'],
+            'default_quota_days' => ['sometimes', 'required', 'integer', 'min:0', 'max:365'],
+            'is_paid' => ['sometimes', 'boolean'],
+            'requires_attachment' => ['sometimes', 'boolean'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        $updated = $this->leaveService->updateLeaveType($leaveType, $validated);
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'data' => $updated,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Leave type updated successfully.');
     }
 
     private function resolveTargetEmployee(User $actor, int|string|null $requestedEmployeeId): Employee

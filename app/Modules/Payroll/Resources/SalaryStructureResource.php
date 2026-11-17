@@ -24,7 +24,7 @@ class SalaryStructureResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'is_active' => $this->is_active,
-            'components' => PayrollComponentResource::collection($this->whenLoaded('components')),
+            'components' => $this->whenLoaded('components', fn () => PayrollComponentResource::collection($this->components)->resolve()),
             'default_allowance_total' => $this->whenLoaded(
                 'components',
                 fn () => $this->calculateDefaultComponentTotal(PayrollComponentType::ALLOWANCE),

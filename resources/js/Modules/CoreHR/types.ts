@@ -6,14 +6,38 @@ export interface DepartmentSummary {
     id: number;
     code: string;
     name: string;
+    description?: string | null;
     parent_id?: number | null;
+    is_active?: boolean;
 }
 
 export interface PositionSummary {
     id: number;
+    department_id?: number;
     code: string;
     title: string;
     level: string;
+    description?: string | null;
+    base_salary_min?: string | null;
+    base_salary_max?: string | null;
+    is_active?: boolean;
+}
+
+export interface LeaveTypeMasterItem {
+    id: number;
+    code: string;
+    name: string;
+    default_quota_days: number;
+    is_paid: boolean;
+    requires_attachment: boolean;
+    is_active: boolean;
+}
+
+export interface ManagerOption {
+    id: number;
+    employee_code: string;
+    full_name: string;
+    department_id: number;
 }
 
 export interface EmployeeSummary {
@@ -25,6 +49,9 @@ export interface EmployeeSummary {
     status: EmploymentStatus;
     salary_grade: string | null;
     bank_name: string | null;
+    national_id_number?: string | null;
+    tax_id_number?: string | null;
+    bank_account_number?: string | null;
     user?: {
         id: number;
         name: string;
@@ -43,10 +70,13 @@ export interface EmployeeSummary {
 export interface EmployeeDirectoryPageProps {
     employees: PaginatedResponse<EmployeeSummary>;
     departments: DepartmentSummary[];
+    positions?: PositionSummary[];
+    leaveTypes?: LeaveTypeMasterItem[];
+    managerOptions?: ManagerOption[];
+    canManage?: boolean;
     filters: {
         department_id?: string;
         status?: EmploymentStatus;
         search?: string;
     };
 }
-
