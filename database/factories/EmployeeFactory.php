@@ -28,6 +28,7 @@ class EmployeeFactory extends Factory
             'user_id' => User::factory(),
             'employee_code' => strtoupper($this->faker->unique()->bothify('EMP-2026-####')),
             'full_name' => $this->faker->name(),
+            'date_of_birth' => $this->faker->dateTimeBetween('-50 years', '-22 years')->format('Y-m-d'),
             'phone_number' => $this->faker->numerify('0812########'),
             'address' => $this->faker->streetAddress().', Jakarta',
             'marital_status' => $this->faker->randomElement(MaritalStatus::cases()),

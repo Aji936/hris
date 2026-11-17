@@ -68,6 +68,8 @@ class EmployeeOnboardingService
                 'user_id' => $user->id,
                 'employee_code' => $payload['employee_code'],
                 'full_name' => $payload['full_name'] ?? $user->name,
+                'date_of_birth' => $payload['date_of_birth'] ?? null,
+                'retirement_date' => $payload['retirement_date'] ?? null,
                 'phone_number' => $payload['phone_number'] ?? null,
                 'address' => $payload['address'] ?? null,
                 'marital_status' => $maritalStatus,
@@ -93,6 +95,8 @@ class EmployeeOnboardingService
                 newValues: $this->sanitizeAuditPayload([
                     'user_id' => $user->id,
                     'employee_code' => $employee->employee_code,
+                    'date_of_birth' => $employee->date_of_birth?->toDateString(),
+                    'retirement_date' => $employee->retirement_date?->toDateString(),
                     'phone_number' => $employee->phone_number,
                     'address' => $employee->address,
                     'marital_status' => $employee->marital_status?->value,
@@ -146,6 +150,8 @@ class EmployeeOnboardingService
                 'employee_code' => $employee->employee_code,
                 'full_name' => $employee->full_name,
                 'email' => $employee->user?->email,
+                'date_of_birth' => $employee->date_of_birth?->toDateString(),
+                'retirement_date' => $employee->retirement_date?->toDateString(),
                 'phone_number' => $employee->phone_number,
                 'address' => $employee->address,
                 'marital_status' => $employee->marital_status?->value,
@@ -170,6 +176,10 @@ class EmployeeOnboardingService
 
             if (isset($payload['name']) && ! isset($payload['full_name'])) {
                 $payload['full_name'] = $payload['name'];
+            }
+
+            if (array_key_exists('retirement_date', $payload) && ($payload['retirement_date'] === null || trim((string) $payload['retirement_date']) === '')) {
+                unset($payload['retirement_date']);
             }
 
             // Preserve existing encrypted PII & bank fields when inputs are left blank during edit
@@ -197,11 +207,15 @@ class EmployeeOnboardingService
                 $updated->user->update($userUpdates);
             }
 
+            $auditNewValues = $payload;
+            $auditNewValues['date_of_birth'] = $updated->date_of_birth?->toDateString();
+            $auditNewValues['retirement_date'] = $updated->retirement_date?->toDateString();
+
             $this->auditLogService->record(
                 event: 'employee.updated',
                 auditable: $updated,
                 oldValues: $oldSnapshot,
-                newValues: $this->sanitizeAuditPayload($payload),
+                newValues: $this->sanitizeAuditPayload($auditNewValues),
             );
 
             return $updated->load(['user', 'department', 'position', 'manager']);

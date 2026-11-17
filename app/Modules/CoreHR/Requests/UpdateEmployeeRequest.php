@@ -25,6 +25,18 @@ class UpdateEmployeeRequest extends FormRequest
             ? $routeEmployee
             : ($routeEmployee !== null ? Employee::query()->find($routeEmployee) : null);
 
+        if (! $this->has('date_of_birth')) {
+            $this->merge([
+                'date_of_birth' => $employee?->date_of_birth?->toDateString() ?? '1995-05-15',
+            ]);
+        }
+
+        if ($this->input('retirement_date') === '') {
+            $this->merge([
+                'retirement_date' => null,
+            ]);
+        }
+
         if (! $this->has('marital_status')) {
             $this->merge([
                 'marital_status' => $employee?->marital_status?->value ?? MaritalStatus::SINGLE->value,
@@ -78,6 +90,8 @@ class UpdateEmployeeRequest extends FormRequest
                     ->ignore($linkedUserId)
                     ->whereNull('deleted_at'),
             ],
+            'date_of_birth' => ['required', 'date', 'before:-17 years'],
+            'retirement_date' => ['nullable', 'date', 'after:date_of_birth'],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:1000'],
             'marital_status' => ['required', 'string', Rule::in(MaritalStatus::values())],

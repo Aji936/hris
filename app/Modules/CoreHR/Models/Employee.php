@@ -14,6 +14,7 @@ use App\Modules\CoreHR\Enums\MaritalStatus;
 use App\Modules\Payroll\Models\EmployeeSalary;
 use App\Modules\Payroll\Models\Payslip;
 use App\Shared\Traits\HasAuditColumns;
+use Carbon\CarbonImmutable;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,12 +28,16 @@ class Employee extends Model
     /** @use HasFactory<EmployeeFactory> */
     use HasAuditColumns, HasFactory, SoftDeletes;
 
+    public const RETIREMENT_AGE_YEARS = 55;
+
     protected $table = 'employees';
 
     protected $fillable = [
         'user_id',
         'employee_code',
         'full_name',
+        'date_of_birth',
+        'retirement_date',
         'phone_number',
         'address',
         'marital_status',
@@ -71,6 +76,8 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
+            'date_of_birth' => 'date',
+            'retirement_date' => 'date',
             'join_date' => 'date',
             'status' => EmploymentStatus::class,
             'marital_status' => MaritalStatus::class,
@@ -82,9 +89,47 @@ class Employee extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(static function (self $employee): void {
+            if ($employee->date_of_birth === null) {
+                return;
+            }
+
+            $shouldAutoCalculate = $employee->retirement_date === null
+                || ($employee->isDirty('date_of_birth') && ! $employee->isDirty('retirement_date'));
+
+            if ($shouldAutoCalculate) {
+                $dob = CarbonImmutable::parse($employee->date_of_birth)->startOfDay();
+                $employee->retirement_date = $dob->addYears(self::RETIREMENT_AGE_YEARS)->toDateString();
+            }
+        });
+    }
+
     protected static function newFactory(): EmployeeFactory
     {
         return EmployeeFactory::new();
+    }
+
+    public function getAgeAttribute(): ?int
+    {
+        if ($this->date_of_birth === null) {
+            return null;
+        }
+
+        return (int) CarbonImmutable::instance($this->date_of_birth)->age;
+    }
+
+    public function getDaysUntilRetirementAttribute(): ?int
+    {
+        if ($this->retirement_date === null) {
+            return null;
+        }
+
+        $today = CarbonImmutable::now()->startOfDay();
+        $retirement = CarbonImmutable::instance($this->retirement_date)->startOfDay();
+
+        return (int) $today->diffInDays($retirement, false);
     }
 
     public function user(): BelongsTo

@@ -1,6 +1,6 @@
 import { PaginatedResponse } from '@/types/common';
 
-export type EmploymentStatus = 'PROBATION' | 'PERMANENT' | 'CONTRACT' | 'TERMINATED';
+export type EmploymentStatus = 'PROBATION' | 'PERMANENT' | 'CONTRACT' | 'RETIRED' | 'TERMINATED';
 
 export type MaritalStatus = 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED';
 
@@ -47,6 +47,10 @@ export interface EmployeeSummary {
     user_id: number;
     employee_code: string;
     full_name: string;
+    date_of_birth: string | null;
+    retirement_date: string | null;
+    age: number | null;
+    days_until_retirement: number | null;
     phone_number: string | null;
     address: string | null;
     marital_status: MaritalStatus;

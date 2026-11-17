@@ -24,6 +24,7 @@ import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
+    AlertTriangle,
     Briefcase,
     Building2,
     CalendarCog,
@@ -71,11 +72,48 @@ function formatPtkpCode(status: MaritalStatus, dependentsCount: number): string 
     return `${prefix}/${capped}`;
 }
 
+function computeRetirementPreview(dateOfBirth: string): string {
+    if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+        return '';
+    }
+
+    const [yearStr, monthStr, dayStr] = dateOfBirth.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const day = Number(dayStr);
+
+    if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+        return '';
+    }
+
+    const retirementYear = year + 55;
+    const targetDate = new Date(Date.UTC(retirementYear, month - 1, day));
+    if (Number.isNaN(targetDate.getTime())) {
+        return '';
+    }
+
+    return targetDate.toISOString().slice(0, 10);
+}
+
+function isApproachingRetirement(employee: EmployeeSummary): boolean {
+    if (employee.status === 'RETIRED' || employee.status === 'TERMINATED') {
+        return false;
+    }
+
+    return (
+        employee.days_until_retirement !== null &&
+        employee.days_until_retirement >= 0 &&
+        employee.days_until_retirement <= 180
+    );
+}
+
 type EmployeeFormData = {
     employee_code: string;
     full_name: string;
     email: string;
     password: string;
+    date_of_birth: string;
+    retirement_date: string;
     phone_number: string;
     address: string;
     marital_status: MaritalStatus;
@@ -140,6 +178,8 @@ export default function EmployeeDirectoryIndex({
         full_name: '',
         email: '',
         password: '',
+        date_of_birth: '1995-05-15',
+        retirement_date: '2050-05-15',
         phone_number: '',
         address: '',
         marital_status: 'SINGLE',
@@ -161,6 +201,8 @@ export default function EmployeeDirectoryIndex({
         full_name: '',
         email: '',
         password: '',
+        date_of_birth: '',
+        retirement_date: '',
         phone_number: '',
         address: '',
         marital_status: 'SINGLE',
@@ -204,11 +246,14 @@ export default function EmployeeDirectoryIndex({
     const openCreateEmployeeModal = (): void => {
         const defaultDeptId = departments[0] ? String(departments[0].id) : '';
         const defaultPos = positions.find((p) => String(p.department_id) === defaultDeptId) ?? positions[0];
+        const defaultDob = '1995-05-15';
         createEmployeeForm.setData({
             employee_code: '',
             full_name: '',
             email: '',
             password: '',
+            date_of_birth: defaultDob,
+            retirement_date: computeRetirementPreview(defaultDob),
             phone_number: '',
             address: '',
             marital_status: 'SINGLE',
@@ -233,6 +278,7 @@ export default function EmployeeDirectoryIndex({
 
         createEmployeeForm.transform((data) => ({
             ...data,
+            retirement_date: data.retirement_date.trim() === '' ? null : data.retirement_date,
             dependents_count: Number(data.dependents_count || 0),
             department_id: Number(data.department_id),
             position_id: Number(data.position_id),
@@ -247,11 +293,14 @@ export default function EmployeeDirectoryIndex({
 
     const openEditEmployee = (emp: EmployeeSummary): void => {
         setEditingEmployee(emp);
+        const dob = emp.date_of_birth ?? '1995-05-15';
         employeeForm.setData({
             employee_code: emp.employee_code,
             full_name: emp.full_name,
             email: emp.user?.email ?? '',
             password: '',
+            date_of_birth: dob,
+            retirement_date: emp.retirement_date ?? computeRetirementPreview(dob),
             phone_number: emp.phone_number ?? '',
             address: emp.address ?? '',
             marital_status: emp.marital_status ?? 'SINGLE',
@@ -278,6 +327,7 @@ export default function EmployeeDirectoryIndex({
 
         employeeForm.transform((data) => ({
             ...data,
+            retirement_date: data.retirement_date.trim() === '' ? null : data.retirement_date,
             dependents_count: Number(data.dependents_count || 0),
             department_id: Number(data.department_id),
             position_id: Number(data.position_id),
@@ -398,7 +448,7 @@ export default function EmployeeDirectoryIndex({
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight">Organization &amp; Employee Master Data</h1>
                         <p className="text-muted-foreground text-sm">
-                            Manage employee records, personal family/tax profiles, organizational hierarchy, and leave policies.
+                            Manage employee records, retirement age (55y) schedules, family tax status, and master data.
                         </p>
                     </div>
 
@@ -456,7 +506,7 @@ export default function EmployeeDirectoryIndex({
                             <div>
                                 <CardTitle>Employee Directory</CardTitle>
                                 <CardDescription>
-                                    Organization master directory, personal contact info, and PPh 21 family tax status.
+                                    Organization master directory, retirement tracking (55 years), and PPh 21 family tax status.
                                 </CardDescription>
                             </div>
                             {canManage && (
@@ -474,8 +524,8 @@ export default function EmployeeDirectoryIndex({
                                             <th className="px-4 py-3">Code</th>
                                             <th className="px-4 py-3">Employee &amp; Contact</th>
                                             <th className="px-4 py-3">Department &amp; Position</th>
+                                            <th className="px-4 py-3">Age &amp; Retirement (55y)</th>
                                             <th className="px-4 py-3">Family / PTKP</th>
-                                            <th className="px-4 py-3">Manager</th>
                                             <th className="px-4 py-3">Status</th>
                                             <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
@@ -512,15 +562,35 @@ export default function EmployeeDirectoryIndex({
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex flex-col gap-1">
+                                                            <p className="font-medium">
+                                                                {employee.age !== null ? `${employee.age} thn` : '-'}
+                                                                {employee.retirement_date && (
+                                                                    <span className="text-muted-foreground ml-1.5 font-mono text-xs">
+                                                                        (Pensiun: {employee.retirement_date})
+                                                                    </span>
+                                                                )}
+                                                            </p>
+                                                            {isApproachingRetirement(employee) && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="w-fit gap-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                                                >
+                                                                    <AlertTriangle className="size-3" />
+                                                                    Mendekati Pensiun ({employee.days_until_retirement} hari)
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col gap-1">
                                                             <Badge variant="secondary" className="w-fit font-mono text-xs">
                                                                 {formatPtkpCode(employee.marital_status ?? 'SINGLE', employee.dependents_count ?? 0)}
                                                             </Badge>
                                                             <span className="text-muted-foreground text-xs">
-                                                                {employee.marital_status ?? 'SINGLE'} • {employee.dependents_count ?? 0} child(ren)
+                                                                {employee.marital_status ?? 'SINGLE'} • {employee.dependents_count ?? 0} anak
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs">{employee.manager?.full_name ?? '-'}</td>
                                                     <td className="px-4 py-3">
                                                         <Badge variant="outline">{employee.status}</Badge>
                                                     </td>
@@ -716,13 +786,23 @@ export default function EmployeeDirectoryIndex({
                 )}
             </div>
 
-            {/* View Employee Profile & Contact/Family Summary Modal */}
+            {/* View Employee Profile & Contact/Family/Retirement Summary Modal */}
             <Dialog open={viewingEmployee !== null} onOpenChange={(open) => !open && setViewingEmployee(null)}>
                 <DialogContent className="sm:max-w-lg">
                     {viewingEmployee && (
                         <div className="flex flex-col gap-4">
                             <DialogHeader>
-                                <DialogTitle>{viewingEmployee.full_name}</DialogTitle>
+                                <div className="flex items-center justify-between gap-2">
+                                    <DialogTitle>{viewingEmployee.full_name}</DialogTitle>
+                                    {isApproachingRetirement(viewingEmployee) && (
+                                        <Badge
+                                            variant="outline"
+                                            className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                        >
+                                            Mendekati Pensiun ({viewingEmployee.days_until_retirement} hari)
+                                        </Badge>
+                                    )}
+                                </div>
                                 <DialogDescription>
                                     {viewingEmployee.employee_code} • {viewingEmployee.department?.name ?? '-'} ({viewingEmployee.position?.title ?? '-'})
                                 </DialogDescription>
@@ -730,9 +810,24 @@ export default function EmployeeDirectoryIndex({
 
                             <div className="grid gap-3 rounded-lg border p-4 text-sm">
                                 <p className="text-muted-foreground text-xs font-semibold uppercase">
-                                    Contact &amp; Family Tax Information (PTKP)
+                                    Personal, Age &amp; Retirement Information (Usia Pensiun 55 Tahun)
                                 </p>
                                 <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <p className="text-muted-foreground text-xs">Date of Birth / Age</p>
+                                        <p className="font-mono text-xs font-medium">
+                                            {viewingEmployee.date_of_birth ?? '-'} ({viewingEmployee.age ?? '-'} tahun)
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground text-xs">Retirement Date (+55y)</p>
+                                        <p className="font-mono text-xs font-semibold">
+                                            {viewingEmployee.retirement_date ?? '-'}
+                                            {viewingEmployee.days_until_retirement !== null
+                                                ? ` (${viewingEmployee.days_until_retirement} hari)`
+                                                : ''}
+                                        </p>
+                                    </div>
                                     <div>
                                         <p className="text-muted-foreground text-xs">Phone Number</p>
                                         <p className="font-medium">{viewingEmployee.phone_number || '-'}</p>
@@ -809,7 +904,7 @@ export default function EmployeeDirectoryIndex({
                         <DialogHeader>
                             <DialogTitle>Onboard New Employee</DialogTitle>
                             <DialogDescription>
-                                Create a new employee profile, personal contact/family tax status, and linked user account.
+                                Create a new employee profile. Retirement date is automatically calculated as Date of Birth + 55 years.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -846,6 +941,42 @@ export default function EmployeeDirectoryIndex({
                                 />
                                 {createEmpErrors.full_name && (
                                     <p className="text-destructive text-xs">{createEmpErrors.full_name}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_dob">Tanggal Lahir (Date of Birth)</Label>
+                                <Input
+                                    id="new_emp_dob"
+                                    type="date"
+                                    value={createEmployeeForm.data.date_of_birth}
+                                    onChange={(e) => {
+                                        const dob = e.target.value;
+                                        createEmployeeForm.setData((prev) => ({
+                                            ...prev,
+                                            date_of_birth: dob,
+                                            retirement_date: computeRetirementPreview(dob),
+                                        }));
+                                    }}
+                                    required
+                                />
+                                {createEmpErrors.date_of_birth && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.date_of_birth}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_retirement">
+                                    Tanggal Pensiun (+55 Tahun Auto / Override)
+                                </Label>
+                                <Input
+                                    id="new_emp_retirement"
+                                    type="date"
+                                    value={createEmployeeForm.data.retirement_date}
+                                    onChange={(e) => createEmployeeForm.setData('retirement_date', e.target.value)}
+                                />
+                                {createEmpErrors.retirement_date && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.retirement_date}</p>
                                 )}
                             </div>
 
@@ -992,6 +1123,7 @@ export default function EmployeeDirectoryIndex({
                                         <SelectItem value="PROBATION">PROBATION</SelectItem>
                                         <SelectItem value="PERMANENT">PERMANENT</SelectItem>
                                         <SelectItem value="CONTRACT">CONTRACT</SelectItem>
+                                        <SelectItem value="RETIRED">RETIRED</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -1021,7 +1153,7 @@ export default function EmployeeDirectoryIndex({
                         <DialogHeader>
                             <DialogTitle>Edit Employee — {editingEmployee?.full_name}</DialogTitle>
                             <DialogDescription>
-                                Update organization placement, contact address, marital status, dependents, and encrypted PII.
+                                Update organization placement, date of birth (+55y retirement preview), contact address, and encrypted PII.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -1054,6 +1186,38 @@ export default function EmployeeDirectoryIndex({
                                     required
                                 />
                                 {empErrors.full_name && <p className="text-destructive text-xs">{empErrors.full_name}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="emp_dob">Tanggal Lahir (Date of Birth)</Label>
+                                <Input
+                                    id="emp_dob"
+                                    type="date"
+                                    value={employeeForm.data.date_of_birth}
+                                    onChange={(e) => {
+                                        const dob = e.target.value;
+                                        employeeForm.setData((prev) => ({
+                                            ...prev,
+                                            date_of_birth: dob,
+                                            retirement_date: computeRetirementPreview(dob),
+                                        }));
+                                    }}
+                                    required
+                                />
+                                {empErrors.date_of_birth && <p className="text-destructive text-xs">{empErrors.date_of_birth}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="emp_retirement">Tanggal Pensiun (+55 Tahun Auto / Override)</Label>
+                                <Input
+                                    id="emp_retirement"
+                                    type="date"
+                                    value={employeeForm.data.retirement_date}
+                                    onChange={(e) => employeeForm.setData('retirement_date', e.target.value)}
+                                />
+                                {empErrors.retirement_date && (
+                                    <p className="text-destructive text-xs">{empErrors.retirement_date}</p>
+                                )}
                             </div>
 
                             <div className="grid gap-2">
@@ -1140,6 +1304,7 @@ export default function EmployeeDirectoryIndex({
                                         <SelectItem value="PROBATION">PROBATION</SelectItem>
                                         <SelectItem value="PERMANENT">PERMANENT</SelectItem>
                                         <SelectItem value="CONTRACT">CONTRACT</SelectItem>
+                                        <SelectItem value="RETIRED">RETIRED</SelectItem>
                                         <SelectItem value="TERMINATED">TERMINATED</SelectItem>
                                     </SelectContent>
                                 </Select>

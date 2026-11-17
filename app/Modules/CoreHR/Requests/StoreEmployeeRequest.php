@@ -19,6 +19,18 @@ class StoreEmployeeRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (! $this->has('date_of_birth')) {
+            $this->merge([
+                'date_of_birth' => '1995-05-15',
+            ]);
+        }
+
+        if ($this->input('retirement_date') === '') {
+            $this->merge([
+                'retirement_date' => null,
+            ]);
+        }
+
         if (! $this->has('marital_status')) {
             $this->merge([
                 'marital_status' => MaritalStatus::SINGLE->value,
@@ -62,6 +74,8 @@ class StoreEmployeeRequest extends FormRequest
                 'max:30',
                 Rule::unique('employees', 'employee_code')->whereNull('deleted_at'),
             ],
+            'date_of_birth' => ['required', 'date', 'before:-17 years'],
+            'retirement_date' => ['nullable', 'date', 'after:date_of_birth'],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:1000'],
             'marital_status' => ['required', 'string', Rule::in(MaritalStatus::values())],

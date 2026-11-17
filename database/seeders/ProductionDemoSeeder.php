@@ -241,6 +241,8 @@ class ProductionDemoSeeder extends Seeder
             ]);
 
         // 5. Seed 2 Managers (with Employee records so subordinate manager_id hierarchy works)
+        $today = CarbonImmutable::now()->startOfDay();
+
         $engManagerUser = $this->upsertUser(
             email: 'manager.eng@hris.local',
             name: 'Arif Pratama',
@@ -264,6 +266,7 @@ class ProductionDemoSeeder extends Seeder
             address: 'Jl. Jenderal Sudirman Kav. 52-53, Kebayoran Baru, Jakarta Selatan',
             maritalStatus: MaritalStatus::MARRIED,
             dependentsCount: 2,
+            dateOfBirth: '1986-04-12',
         );
 
         $opsManagerUser = $this->upsertUser(
@@ -289,20 +292,21 @@ class ProductionDemoSeeder extends Seeder
             address: 'Jl. HR Rasuna Said Kav. C-22, Kuningan, Jakarta Selatan',
             maritalStatus: MaritalStatus::MARRIED,
             dependentsCount: 1,
+            dateOfBirth: '1988-09-20',
         );
 
-        // 6. Seed 10 Active Employees with Encrypted PII (NIK, NPWP, Bank Account) & Personal Profile
+        // 6. Seed 10 Active Employees with Encrypted PII, Personal Profile & Realistic Birth Dates (including 2 approaching retirement at age 54-55)
         $employeesSpec = [
-            ['idx' => 1, 'name' => 'Budi Santoso', 'dept' => $engDept->id, 'pos' => 'POS-ENG-SWE', 'mgr' => $engManagerEmployee->id, 'grade' => 'S3', 'salary' => '20000000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::MARRIED, 'dependents' => 2, 'address' => 'Jl. Kemang Raya No. 18, Mampang Prapatan, Jakarta Selatan'],
-            ['idx' => 2, 'name' => 'Siti Rahmawati', 'dept' => $engDept->id, 'pos' => 'POS-ENG-SWE', 'mgr' => $engManagerEmployee->id, 'grade' => 'S3', 'salary' => '19500000.00', 'bank' => 'Bank Mandiri', 'marital' => MaritalStatus::MARRIED, 'dependents' => 1, 'address' => 'Jl. Tebet Barat Dalam Raya No. 45, Jakarta Selatan'],
-            ['idx' => 3, 'name' => 'Dimas Saputra', 'dept' => $engDept->id, 'pos' => 'POS-ENG-QA', 'mgr' => $engManagerEmployee->id, 'grade' => 'S2', 'salary' => '15000000.00', 'bank' => 'BNI', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Margonda Raya No. 112, Depok, Jawa Barat'],
-            ['idx' => 4, 'name' => 'Rina Kartika', 'dept' => $engDept->id, 'pos' => 'POS-ENG-QA', 'mgr' => $engManagerEmployee->id, 'grade' => 'S2', 'salary' => '14500000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Cempaka Putih Tengah No. 27, Jakarta Pusat'],
-            ['idx' => 5, 'name' => 'Fajar Nugroho', 'dept' => $hrDept->id, 'pos' => 'POS-HR-SPEC', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S2', 'salary' => '13500000.00', 'bank' => 'BRI', 'marital' => MaritalStatus::MARRIED, 'dependents' => 3, 'address' => 'Jl. Bintaro Utama 3A Blok D12, Tangerang Selatan'],
-            ['idx' => 6, 'name' => 'Lestari Wulandari', 'dept' => $hrDept->id, 'pos' => 'POS-HR-TA', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S2', 'salary' => '12500000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::DIVORCED, 'dependents' => 1, 'address' => 'Jl. Kelapa Gading Boulevard Blok QA3, Jakarta Utara'],
-            ['idx' => 7, 'name' => 'Hendra Wijaya', 'dept' => $finDept->id, 'pos' => 'POS-FIN-ACC', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S3', 'salary' => '16500000.00', 'bank' => 'Bank Mandiri', 'marital' => MaritalStatus::MARRIED, 'dependents' => 2, 'address' => 'Jl. Panjang Kebon Jeruk No. 88, Jakarta Barat'],
-            ['idx' => 8, 'name' => 'Putri Maharani', 'dept' => $finDept->id, 'pos' => 'POS-FIN-ACC', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S3', 'salary' => '16000000.00', 'bank' => 'BNI', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Cikini Raya No. 60, Menteng, Jakarta Pusat'],
-            ['idx' => 9, 'name' => 'Rizky Ramadhan', 'dept' => $opsDept->id, 'pos' => 'POS-OPS-COOR', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S1', 'salary' => '11000000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Kalimalang Raya No. 19, Bekasi Barat'],
-            ['idx' => 10, 'name' => 'Anisa Permata', 'dept' => $opsDept->id, 'pos' => 'POS-OPS-COOR', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S1', 'salary' => '10500000.00', 'bank' => 'Bank Mandiri', 'marital' => MaritalStatus::WIDOWED, 'dependents' => 1, 'address' => 'Jl. Cinere Raya No. 34, Depok, Jawa Barat'],
+            ['idx' => 1, 'name' => 'Budi Santoso', 'dept' => $engDept->id, 'pos' => 'POS-ENG-SWE', 'mgr' => $engManagerEmployee->id, 'grade' => 'S3', 'salary' => '20000000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::MARRIED, 'dependents' => 2, 'address' => 'Jl. Kemang Raya No. 18, Mampang Prapatan, Jakarta Selatan', 'dob' => $today->subYears(55)->addDays(45)->toDateString()],
+            ['idx' => 2, 'name' => 'Siti Rahmawati', 'dept' => $engDept->id, 'pos' => 'POS-ENG-SWE', 'mgr' => $engManagerEmployee->id, 'grade' => 'S3', 'salary' => '19500000.00', 'bank' => 'Bank Mandiri', 'marital' => MaritalStatus::MARRIED, 'dependents' => 1, 'address' => 'Jl. Tebet Barat Dalam Raya No. 45, Jakarta Selatan', 'dob' => '1992-03-14'],
+            ['idx' => 3, 'name' => 'Dimas Saputra', 'dept' => $engDept->id, 'pos' => 'POS-ENG-QA', 'mgr' => $engManagerEmployee->id, 'grade' => 'S2', 'salary' => '15000000.00', 'bank' => 'BNI', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Margonda Raya No. 112, Depok, Jawa Barat', 'dob' => '1996-07-22'],
+            ['idx' => 4, 'name' => 'Rina Kartika', 'dept' => $engDept->id, 'pos' => 'POS-ENG-QA', 'mgr' => $engManagerEmployee->id, 'grade' => 'S2', 'salary' => '14500000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Cempaka Putih Tengah No. 27, Jakarta Pusat', 'dob' => '1997-11-05'],
+            ['idx' => 5, 'name' => 'Fajar Nugroho', 'dept' => $hrDept->id, 'pos' => 'POS-HR-SPEC', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S2', 'salary' => '13500000.00', 'bank' => 'BRI', 'marital' => MaritalStatus::MARRIED, 'dependents' => 3, 'address' => 'Jl. Bintaro Utama 3A Blok D12, Tangerang Selatan', 'dob' => '1990-01-19'],
+            ['idx' => 6, 'name' => 'Lestari Wulandari', 'dept' => $hrDept->id, 'pos' => 'POS-HR-TA', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S2', 'salary' => '12500000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::DIVORCED, 'dependents' => 1, 'address' => 'Jl. Kelapa Gading Boulevard Blok QA3, Jakarta Utara', 'dob' => '1993-06-30'],
+            ['idx' => 7, 'name' => 'Hendra Wijaya', 'dept' => $finDept->id, 'pos' => 'POS-FIN-ACC', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S3', 'salary' => '16500000.00', 'bank' => 'Bank Mandiri', 'marital' => MaritalStatus::MARRIED, 'dependents' => 2, 'address' => 'Jl. Panjang Kebon Jeruk No. 88, Jakarta Barat', 'dob' => $today->subYears(55)->addDays(120)->toDateString()],
+            ['idx' => 8, 'name' => 'Putri Maharani', 'dept' => $finDept->id, 'pos' => 'POS-FIN-ACC', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S3', 'salary' => '16000000.00', 'bank' => 'BNI', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Cikini Raya No. 60, Menteng, Jakarta Pusat', 'dob' => '1995-08-17'],
+            ['idx' => 9, 'name' => 'Rizky Ramadhan', 'dept' => $opsDept->id, 'pos' => 'POS-OPS-COOR', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S1', 'salary' => '11000000.00', 'bank' => 'BCA', 'marital' => MaritalStatus::SINGLE, 'dependents' => 0, 'address' => 'Jl. Kalimalang Raya No. 19, Bekasi Barat', 'dob' => '1998-02-25'],
+            ['idx' => 10, 'name' => 'Anisa Permata', 'dept' => $opsDept->id, 'pos' => 'POS-OPS-COOR', 'mgr' => $opsManagerEmployee->id, 'grade' => 'S1', 'salary' => '10500000.00', 'bank' => 'Bank Mandiri', 'marital' => MaritalStatus::WIDOWED, 'dependents' => 1, 'address' => 'Jl. Cinere Raya No. 34, Depok, Jawa Barat', 'dob' => '1991-12-09'],
         ];
 
         /** @var list<Employee> $allSeededEmployees */
@@ -334,13 +338,13 @@ class ProductionDemoSeeder extends Seeder
                 address: $row['address'],
                 maritalStatus: $row['marital'],
                 dependentsCount: $row['dependents'],
+                dateOfBirth: $row['dob'],
             );
 
             $allSeededEmployees[] = $empRecord;
         }
 
         // 7. Assign Active Salaries, 2026 Leave Balances & 30-Day Attendance History
-        $today = CarbonImmutable::now()->startOfDay();
         $previousMonth = $today->subMonthNoOverflow();
         $salaryEffectiveDate = $previousMonth->startOfMonth()->toDateString();
 
@@ -526,13 +530,18 @@ class ProductionDemoSeeder extends Seeder
         string $address = 'Jakarta, Indonesia',
         MaritalStatus $maritalStatus = MaritalStatus::SINGLE,
         int $dependentsCount = 0,
+        string $dateOfBirth = '1992-05-15',
     ): Employee {
+        $retirementDate = CarbonImmutable::parse($dateOfBirth)->addYears(Employee::RETIREMENT_AGE_YEARS)->toDateString();
+
         /** @var Employee $employee */
         $employee = Employee::query()->updateOrCreate(
             ['employee_code' => $code],
             [
                 'user_id' => $user->id,
                 'full_name' => $user->name,
+                'date_of_birth' => $dateOfBirth,
+                'retirement_date' => $retirementDate,
                 'phone_number' => $phoneNumber,
                 'address' => $address,
                 'marital_status' => $maritalStatus->value,

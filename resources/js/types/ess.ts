@@ -36,6 +36,10 @@ export interface EssEmployeeSummary {
     id: number;
     employee_code: string;
     full_name: string;
+    date_of_birth?: string | null;
+    retirement_date?: string | null;
+    age?: number | null;
+    days_until_retirement?: number | null;
     phone_number?: string | null;
     address?: string | null;
     marital_status?: MaritalStatusValue;
@@ -135,6 +139,10 @@ export interface PayslipItemData {
 export interface PayslipEmployeeSnapshot {
     employee_code?: string;
     full_name?: string;
+    date_of_birth?: string | null;
+    retirement_date?: string | null;
+    age?: number | null;
+    days_until_retirement?: number | null;
     phone_number?: string | null;
     address?: string | null;
     marital_status?: MaritalStatusValue;

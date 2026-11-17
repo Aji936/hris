@@ -9,6 +9,7 @@ enum EmploymentStatus: string
     case PROBATION = 'PROBATION';
     case PERMANENT = 'PERMANENT';
     case CONTRACT = 'CONTRACT';
+    case RETIRED = 'RETIRED';
     case TERMINATED = 'TERMINATED';
 
     /**
