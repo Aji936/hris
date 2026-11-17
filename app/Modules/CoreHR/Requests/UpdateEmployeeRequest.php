@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\CoreHR\Requests;
 
 use App\Modules\CoreHR\Enums\EmploymentStatus;
+use App\Modules\CoreHR\Enums\MaritalStatus;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\RBAC\Enums\PermissionName;
 use Illuminate\Foundation\Http\FormRequest;
@@ -15,6 +16,26 @@ class UpdateEmployeeRequest extends FormRequest
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(PermissionName::EMPLOYEE_UPDATE->value);
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $routeEmployee = $this->route('employee');
+        $employee = $routeEmployee instanceof Employee
+            ? $routeEmployee
+            : ($routeEmployee !== null ? Employee::query()->find($routeEmployee) : null);
+
+        if (! $this->has('marital_status')) {
+            $this->merge([
+                'marital_status' => $employee?->marital_status?->value ?? MaritalStatus::SINGLE->value,
+            ]);
+        }
+
+        if (! $this->has('dependents_count')) {
+            $this->merge([
+                'dependents_count' => (int) ($employee?->dependents_count ?? 0),
+            ]);
+        }
     }
 
     /**
@@ -57,6 +78,11 @@ class UpdateEmployeeRequest extends FormRequest
                     ->ignore($linkedUserId)
                     ->whereNull('deleted_at'),
             ],
+            'phone_number' => ['nullable', 'string', 'max:30'],
+            'address' => ['nullable', 'string', 'max:1000'],
+            'marital_status' => ['required', 'string', Rule::in(MaritalStatus::values())],
+            'dependents_count' => ['required', 'integer', 'min:0', 'max:20'],
+
             'department_id' => ['sometimes', 'required', 'integer', 'exists:departments,id'],
             'position_id' => ['sometimes', 'required', 'integer', 'exists:positions,id'],
             'shift_id' => ['nullable', 'integer', 'exists:shifts,id'],

@@ -10,6 +10,7 @@ use App\Modules\Attendance\Models\LeaveBalance;
 use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\Shift;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
+use App\Modules\CoreHR\Enums\MaritalStatus;
 use App\Modules\Payroll\Models\EmployeeSalary;
 use App\Modules\Payroll\Models\Payslip;
 use App\Shared\Traits\HasAuditColumns;
@@ -32,6 +33,10 @@ class Employee extends Model
         'user_id',
         'employee_code',
         'full_name',
+        'phone_number',
+        'address',
+        'marital_status',
+        'dependents_count',
         'department_id',
         'position_id',
         'shift_id',
@@ -68,6 +73,8 @@ class Employee extends Model
         return [
             'join_date' => 'date',
             'status' => EmploymentStatus::class,
+            'marital_status' => MaritalStatus::class,
+            'dependents_count' => 'integer',
             'basic_salary' => 'decimal:2',
             'national_id_number' => 'encrypted',
             'tax_id_number' => 'encrypted',

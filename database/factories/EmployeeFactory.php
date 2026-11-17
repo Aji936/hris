@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\User;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
+use App\Modules\CoreHR\Enums\MaritalStatus;
 use App\Modules\CoreHR\Models\Department;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\CoreHR\Models\Position;
@@ -27,6 +28,10 @@ class EmployeeFactory extends Factory
             'user_id' => User::factory(),
             'employee_code' => strtoupper($this->faker->unique()->bothify('EMP-2026-####')),
             'full_name' => $this->faker->name(),
+            'phone_number' => $this->faker->numerify('0812########'),
+            'address' => $this->faker->streetAddress().', Jakarta',
+            'marital_status' => $this->faker->randomElement(MaritalStatus::cases()),
+            'dependents_count' => $this->faker->numberBetween(0, 3),
             'department_id' => Department::factory(),
             'position_id' => static fn (array $attributes): int => Position::factory()->create([
                 'department_id' => $attributes['department_id'],

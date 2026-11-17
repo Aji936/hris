@@ -22,7 +22,18 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Building2, Briefcase, CalendarCog, CheckCircle2, Pencil, Users } from 'lucide-react';
+import {
+    AlertCircle,
+    Briefcase,
+    Building2,
+    CalendarCog,
+    CheckCircle2,
+    Eye,
+    Pencil,
+    Phone,
+    UserPlus,
+    Users,
+} from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import {
     type DepartmentSummary,
@@ -30,6 +41,7 @@ import {
     type EmployeeSummary,
     type EmploymentStatus,
     type LeaveTypeMasterItem,
+    type MaritalStatus,
     type PositionSummary,
 } from '../../types';
 
@@ -46,10 +58,28 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type ActiveTab = 'employees' | 'departments' | 'positions' | 'leave-types';
 
-type EditEmployeeFormData = {
+const MARITAL_STATUS_LABELS: Record<MaritalStatus, string> = {
+    SINGLE: 'Belum Menikah (Single)',
+    MARRIED: 'Menikah (Married)',
+    DIVORCED: 'Cerai Hidup (Divorced)',
+    WIDOWED: 'Cerai Mati (Widowed)',
+};
+
+function formatPtkpCode(status: MaritalStatus, dependentsCount: number): string {
+    const capped = Math.max(0, Math.min(3, dependentsCount));
+    const prefix = status === 'MARRIED' ? 'K' : 'TK';
+    return `${prefix}/${capped}`;
+}
+
+type EmployeeFormData = {
     employee_code: string;
     full_name: string;
     email: string;
+    password: string;
+    phone_number: string;
+    address: string;
+    marital_status: MaritalStatus;
+    dependents_count: string;
     department_id: string;
     position_id: string;
     manager_id: string;
@@ -98,15 +128,43 @@ export default function EmployeeDirectoryIndex({
     const flash = page.props.flash;
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('employees');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+    const [viewingEmployee, setViewingEmployee] = useState<EmployeeSummary | null>(null);
     const [editingEmployee, setEditingEmployee] = useState<EmployeeSummary | null>(null);
     const [editingDepartment, setEditingDepartment] = useState<DepartmentSummary | null>(null);
     const [editingPosition, setEditingPosition] = useState<PositionSummary | null>(null);
     const [editingLeaveType, setEditingLeaveType] = useState<LeaveTypeMasterItem | null>(null);
 
-    const employeeForm = useForm<EditEmployeeFormData>({
+    const createEmployeeForm = useForm<EmployeeFormData>({
         employee_code: '',
         full_name: '',
         email: '',
+        password: '',
+        phone_number: '',
+        address: '',
+        marital_status: 'SINGLE',
+        dependents_count: '0',
+        department_id: departments[0] ? String(departments[0].id) : '',
+        position_id: positions[0] ? String(positions[0].id) : '',
+        manager_id: 'none',
+        join_date: new Date().toISOString().slice(0, 10),
+        status: 'PROBATION',
+        salary_grade: 'S1',
+        bank_name: 'BCA',
+        national_id_number: '',
+        tax_id_number: '',
+        bank_account_number: '',
+    });
+
+    const employeeForm = useForm<EmployeeFormData>({
+        employee_code: '',
+        full_name: '',
+        email: '',
+        password: '',
+        phone_number: '',
+        address: '',
+        marital_status: 'SINGLE',
+        dependents_count: '0',
         department_id: '',
         position_id: '',
         manager_id: 'none',
@@ -143,12 +201,61 @@ export default function EmployeeDirectoryIndex({
         requires_attachment: false,
     });
 
+    const openCreateEmployeeModal = (): void => {
+        const defaultDeptId = departments[0] ? String(departments[0].id) : '';
+        const defaultPos = positions.find((p) => String(p.department_id) === defaultDeptId) ?? positions[0];
+        createEmployeeForm.setData({
+            employee_code: '',
+            full_name: '',
+            email: '',
+            password: '',
+            phone_number: '',
+            address: '',
+            marital_status: 'SINGLE',
+            dependents_count: '0',
+            department_id: defaultDeptId,
+            position_id: defaultPos ? String(defaultPos.id) : '',
+            manager_id: 'none',
+            join_date: new Date().toISOString().slice(0, 10),
+            status: 'PROBATION',
+            salary_grade: defaultPos?.level ?? 'S1',
+            bank_name: 'BCA',
+            national_id_number: '',
+            tax_id_number: '',
+            bank_account_number: '',
+        });
+        createEmployeeForm.clearErrors();
+        setIsCreateModalOpen(true);
+    };
+
+    const handleEmployeeCreate = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+
+        createEmployeeForm.transform((data) => ({
+            ...data,
+            dependents_count: Number(data.dependents_count || 0),
+            department_id: Number(data.department_id),
+            position_id: Number(data.position_id),
+            manager_id: data.manager_id === 'none' || data.manager_id === '' ? null : Number(data.manager_id),
+            password: data.password.trim() === '' ? undefined : data.password,
+        }));
+        createEmployeeForm.post('/core-hr/employees', {
+            preserveScroll: true,
+            onSuccess: () => setIsCreateModalOpen(false),
+        });
+    };
+
     const openEditEmployee = (emp: EmployeeSummary): void => {
         setEditingEmployee(emp);
         employeeForm.setData({
             employee_code: emp.employee_code,
             full_name: emp.full_name,
             email: emp.user?.email ?? '',
+            password: '',
+            phone_number: emp.phone_number ?? '',
+            address: emp.address ?? '',
+            marital_status: emp.marital_status ?? 'SINGLE',
+            dependents_count: String(emp.dependents_count ?? 0),
             department_id: emp.department ? String(emp.department.id) : '',
             position_id: emp.position ? String(emp.position.id) : '',
             manager_id: emp.manager ? String(emp.manager.id) : 'none',
@@ -171,6 +278,7 @@ export default function EmployeeDirectoryIndex({
 
         employeeForm.transform((data) => ({
             ...data,
+            dependents_count: Number(data.dependents_count || 0),
             department_id: Number(data.department_id),
             position_id: Number(data.position_id),
             manager_id: data.manager_id === 'none' || data.manager_id === '' ? null : Number(data.manager_id),
@@ -267,10 +375,15 @@ export default function EmployeeDirectoryIndex({
         });
     };
 
+    const filteredCreatePositions = positions.filter(
+        (pos) => !createEmployeeForm.data.department_id || String(pos.department_id) === createEmployeeForm.data.department_id,
+    );
+
     const filteredPositions = positions.filter(
         (pos) => !employeeForm.data.department_id || String(pos.department_id) === employeeForm.data.department_id,
     );
 
+    const createEmpErrors = createEmployeeForm.errors as Record<string, string | undefined>;
     const empErrors = employeeForm.errors as Record<string, string | undefined>;
     const deptErrors = departmentForm.errors as Record<string, string | undefined>;
     const posErrors = positionForm.errors as Record<string, string | undefined>;
@@ -285,7 +398,7 @@ export default function EmployeeDirectoryIndex({
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight">Organization &amp; Employee Master Data</h1>
                         <p className="text-muted-foreground text-sm">
-                            Manage employee records, organizational hierarchy, job grades, and leave policies with full audit trail.
+                            Manage employee records, personal family/tax profiles, organizational hierarchy, and leave policies.
                         </p>
                     </div>
 
@@ -339,11 +452,19 @@ export default function EmployeeDirectoryIndex({
 
                 {activeTab === 'employees' && (
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Employee Directory</CardTitle>
-                            <CardDescription>
-                                Organization master directory and employment records.
-                            </CardDescription>
+                        <CardHeader className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                            <div>
+                                <CardTitle>Employee Directory</CardTitle>
+                                <CardDescription>
+                                    Organization master directory, personal contact info, and PPh 21 family tax status.
+                                </CardDescription>
+                            </div>
+                            {canManage && (
+                                <Button type="button" size="sm" onClick={openCreateEmployeeModal}>
+                                    <UserPlus className="size-4" />
+                                    Add Employee
+                                </Button>
+                            )}
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="overflow-x-auto border-t">
@@ -351,19 +472,18 @@ export default function EmployeeDirectoryIndex({
                                     <thead className="bg-muted/50 border-b text-xs uppercase">
                                         <tr>
                                             <th className="px-4 py-3">Code</th>
-                                            <th className="px-4 py-3">Employee</th>
-                                            <th className="px-4 py-3">Department</th>
-                                            <th className="px-4 py-3">Position</th>
+                                            <th className="px-4 py-3">Employee &amp; Contact</th>
+                                            <th className="px-4 py-3">Department &amp; Position</th>
+                                            <th className="px-4 py-3">Family / PTKP</th>
                                             <th className="px-4 py-3">Manager</th>
                                             <th className="px-4 py-3">Status</th>
-                                            <th className="px-4 py-3">Join Date</th>
-                                            {canManage && <th className="px-4 py-3 text-right">Actions</th>}
+                                            <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {employees.data.length === 0 ? (
                                             <tr>
-                                                <td colSpan={canManage ? 8 : 7} className="text-muted-foreground px-4 py-8 text-center">
+                                                <td colSpan={7} className="text-muted-foreground px-4 py-8 text-center">
                                                     No employee records found.
                                                 </td>
                                             </tr>
@@ -376,34 +496,58 @@ export default function EmployeeDirectoryIndex({
                                                         {employee.user?.email && (
                                                             <p className="text-muted-foreground text-xs">{employee.user.email}</p>
                                                         )}
-                                                    </td>
-                                                    <td className="px-4 py-3">{employee.department?.name ?? '-'}</td>
-                                                    <td className="px-4 py-3">
-                                                        {employee.position?.title ?? '-'}
-                                                        {employee.salary_grade && (
-                                                            <span className="text-muted-foreground ml-1.5 text-xs">
-                                                                ({employee.salary_grade})
-                                                            </span>
+                                                        {employee.phone_number && (
+                                                            <p className="text-muted-foreground mt-0.5 inline-flex items-center gap-1 text-xs">
+                                                                <Phone className="size-3" />
+                                                                {employee.phone_number}
+                                                            </p>
                                                         )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <p className="font-medium">{employee.department?.name ?? '-'}</p>
+                                                        <p className="text-muted-foreground text-xs">
+                                                            {employee.position?.title ?? '-'}
+                                                            {employee.salary_grade ? ` (${employee.salary_grade})` : ''}
+                                                        </p>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col gap-1">
+                                                            <Badge variant="secondary" className="w-fit font-mono text-xs">
+                                                                {formatPtkpCode(employee.marital_status ?? 'SINGLE', employee.dependents_count ?? 0)}
+                                                            </Badge>
+                                                            <span className="text-muted-foreground text-xs">
+                                                                {employee.marital_status ?? 'SINGLE'} • {employee.dependents_count ?? 0} child(ren)
+                                                            </span>
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-3 text-xs">{employee.manager?.full_name ?? '-'}</td>
                                                     <td className="px-4 py-3">
                                                         <Badge variant="outline">{employee.status}</Badge>
                                                     </td>
-                                                    <td className="px-4 py-3 font-mono text-xs">{employee.join_date}</td>
-                                                    {canManage && (
-                                                        <td className="px-4 py-3 text-right">
+                                                    <td className="px-4 py-3 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
                                                             <Button
                                                                 type="button"
-                                                                variant="outline"
+                                                                variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => openEditEmployee(employee)}
+                                                                onClick={() => setViewingEmployee(employee)}
                                                             >
-                                                                <Pencil className="size-3.5" />
-                                                                Edit
+                                                                <Eye className="size-3.5" />
+                                                                Profile
                                                             </Button>
-                                                        </td>
-                                                    )}
+                                                            {canManage && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => openEditEmployee(employee)}
+                                                                >
+                                                                    <Pencil className="size-3.5" />
+                                                                    Edit
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             ))
                                         )}
@@ -572,6 +716,304 @@ export default function EmployeeDirectoryIndex({
                 )}
             </div>
 
+            {/* View Employee Profile & Contact/Family Summary Modal */}
+            <Dialog open={viewingEmployee !== null} onOpenChange={(open) => !open && setViewingEmployee(null)}>
+                <DialogContent className="sm:max-w-lg">
+                    {viewingEmployee && (
+                        <div className="flex flex-col gap-4">
+                            <DialogHeader>
+                                <DialogTitle>{viewingEmployee.full_name}</DialogTitle>
+                                <DialogDescription>
+                                    {viewingEmployee.employee_code} • {viewingEmployee.department?.name ?? '-'} ({viewingEmployee.position?.title ?? '-'})
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="grid gap-3 rounded-lg border p-4 text-sm">
+                                <p className="text-muted-foreground text-xs font-semibold uppercase">
+                                    Contact &amp; Family Tax Information (PTKP)
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <p className="text-muted-foreground text-xs">Phone Number</p>
+                                        <p className="font-medium">{viewingEmployee.phone_number || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground text-xs">Email</p>
+                                        <p className="font-medium">{viewingEmployee.user?.email || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground text-xs">Marital Status</p>
+                                        <p className="font-medium">
+                                            {MARITAL_STATUS_LABELS[viewingEmployee.marital_status ?? 'SINGLE']}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-muted-foreground text-xs">Dependents (Children) &amp; PTKP</p>
+                                        <p className="font-medium">
+                                            {viewingEmployee.dependents_count ?? 0} Anak ({formatPtkpCode(viewingEmployee.marital_status ?? 'SINGLE', viewingEmployee.dependents_count ?? 0)})
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-muted-foreground text-xs">Residential Address</p>
+                                        <p className="font-medium">{viewingEmployee.address || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 rounded-lg border p-4 text-sm">
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Join Date</p>
+                                    <p className="font-mono text-xs font-medium">{viewingEmployee.join_date}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Direct Manager</p>
+                                    <p className="font-medium">{viewingEmployee.manager?.full_name ?? '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Bank Name</p>
+                                    <p className="font-medium">{viewingEmployee.bank_name ?? '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-xs">Salary Grade</p>
+                                    <p className="font-medium">{viewingEmployee.salary_grade ?? '-'}</p>
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setViewingEmployee(null)}>
+                                    Close
+                                </Button>
+                                {canManage && (
+                                    <Button
+                                        type="button"
+                                        onClick={() => {
+                                            const target = viewingEmployee;
+                                            setViewingEmployee(null);
+                                            openEditEmployee(target);
+                                        }}
+                                    >
+                                        <Pencil className="size-3.5" />
+                                        Edit Employee
+                                    </Button>
+                                )}
+                            </DialogFooter>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Create New Employee Modal */}
+            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                    <form onSubmit={handleEmployeeCreate} className="flex flex-col gap-4">
+                        <DialogHeader>
+                            <DialogTitle>Onboard New Employee</DialogTitle>
+                            <DialogDescription>
+                                Create a new employee profile, personal contact/family tax status, and linked user account.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {createEmpErrors.domain && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="size-4" />
+                                <AlertTitle>Validation Error</AlertTitle>
+                                <AlertDescription>{createEmpErrors.domain}</AlertDescription>
+                            </Alert>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_code">Employee Code</Label>
+                                <Input
+                                    id="new_emp_code"
+                                    value={createEmployeeForm.data.employee_code}
+                                    onChange={(e) => createEmployeeForm.setData('employee_code', e.target.value)}
+                                    placeholder="EMP-2026-0011"
+                                    required
+                                />
+                                {createEmpErrors.employee_code && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.employee_code}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_name">Full Name</Label>
+                                <Input
+                                    id="new_emp_name"
+                                    value={createEmployeeForm.data.full_name}
+                                    onChange={(e) => createEmployeeForm.setData('full_name', e.target.value)}
+                                    required
+                                />
+                                {createEmpErrors.full_name && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.full_name}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_email">Account Email</Label>
+                                <Input
+                                    id="new_emp_email"
+                                    type="email"
+                                    value={createEmployeeForm.data.email}
+                                    onChange={(e) => createEmployeeForm.setData('email', e.target.value)}
+                                    required
+                                />
+                                {createEmpErrors.email && <p className="text-destructive text-xs">{createEmpErrors.email}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_phone">Nomor Telepon (Phone Number)</Label>
+                                <Input
+                                    id="new_emp_phone"
+                                    value={createEmployeeForm.data.phone_number}
+                                    onChange={(e) => createEmployeeForm.setData('phone_number', e.target.value)}
+                                    placeholder="0812xxxxxxxx"
+                                />
+                                {createEmpErrors.phone_number && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.phone_number}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_marital">Status Pernikahan (Marital Status)</Label>
+                                <Select
+                                    value={createEmployeeForm.data.marital_status}
+                                    onValueChange={(value) => createEmployeeForm.setData('marital_status', value as MaritalStatus)}
+                                >
+                                    <SelectTrigger id="new_emp_marital">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="SINGLE">Belum Menikah (SINGLE)</SelectItem>
+                                        <SelectItem value="MARRIED">Menikah (MARRIED)</SelectItem>
+                                        <SelectItem value="DIVORCED">Cerai Hidup (DIVORCED)</SelectItem>
+                                        <SelectItem value="WIDOWED">Cerai Mati (WIDOWED)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {createEmpErrors.marital_status && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.marital_status}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_dependents">Jumlah Anak / Tanggungan (Dependents)</Label>
+                                <Input
+                                    id="new_emp_dependents"
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    value={createEmployeeForm.data.dependents_count}
+                                    onChange={(e) => createEmployeeForm.setData('dependents_count', e.target.value)}
+                                    required
+                                />
+                                {createEmpErrors.dependents_count && (
+                                    <p className="text-destructive text-xs">{createEmpErrors.dependents_count}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor="new_emp_address">Alamat Lengkap (Address)</Label>
+                                <textarea
+                                    id="new_emp_address"
+                                    rows={2}
+                                    value={createEmployeeForm.data.address}
+                                    onChange={(e) => createEmployeeForm.setData('address', e.target.value)}
+                                    placeholder="Jl. Jenderal Sudirman No. ..."
+                                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                                />
+                                {createEmpErrors.address && <p className="text-destructive text-xs">{createEmpErrors.address}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_department">Department</Label>
+                                <Select
+                                    value={createEmployeeForm.data.department_id}
+                                    onValueChange={(value) => {
+                                        createEmployeeForm.setData('department_id', value);
+                                        const firstDeptPos = positions.find((p) => String(p.department_id) === value);
+                                        if (firstDeptPos) {
+                                            createEmployeeForm.setData('position_id', String(firstDeptPos.id));
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger id="new_emp_department">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departments.map((dept) => (
+                                            <SelectItem key={dept.id} value={String(dept.id)}>
+                                                {dept.name} ({dept.code})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_position">Position / Title</Label>
+                                <Select
+                                    value={createEmployeeForm.data.position_id}
+                                    onValueChange={(value) => createEmployeeForm.setData('position_id', value)}
+                                >
+                                    <SelectTrigger id="new_emp_position">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {filteredCreatePositions.map((pos) => (
+                                            <SelectItem key={pos.id} value={String(pos.id)}>
+                                                {pos.title} ({pos.level})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_join_date">Join Date</Label>
+                                <Input
+                                    id="new_emp_join_date"
+                                    type="date"
+                                    value={createEmployeeForm.data.join_date}
+                                    onChange={(e) => createEmployeeForm.setData('join_date', e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_emp_status">Employment Status</Label>
+                                <Select
+                                    value={createEmployeeForm.data.status}
+                                    onValueChange={(value) => createEmployeeForm.setData('status', value as EmploymentStatus)}
+                                >
+                                    <SelectTrigger id="new_emp_status">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="PROBATION">PROBATION</SelectItem>
+                                        <SelectItem value="PERMANENT">PERMANENT</SelectItem>
+                                        <SelectItem value="CONTRACT">CONTRACT</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsCreateModalOpen(false)}
+                                disabled={createEmployeeForm.processing}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={createEmployeeForm.processing}>
+                                {createEmployeeForm.processing ? 'Saving...' : 'Create Employee'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
             {/* Edit Employee Modal */}
             <Dialog open={editingEmployee !== null} onOpenChange={(open) => !open && setEditingEmployee(null)}>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -579,7 +1021,7 @@ export default function EmployeeDirectoryIndex({
                         <DialogHeader>
                             <DialogTitle>Edit Employee — {editingEmployee?.full_name}</DialogTitle>
                             <DialogDescription>
-                                Update organization placement, profile details, and encrypted PII. All changes are recorded in Audit Log.
+                                Update organization placement, contact address, marital status, dependents, and encrypted PII.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -624,6 +1066,65 @@ export default function EmployeeDirectoryIndex({
                                     required
                                 />
                                 {empErrors.email && <p className="text-destructive text-xs">{empErrors.email}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="emp_phone">Nomor Telepon (Phone Number)</Label>
+                                <Input
+                                    id="emp_phone"
+                                    value={employeeForm.data.phone_number}
+                                    onChange={(e) => employeeForm.setData('phone_number', e.target.value)}
+                                    placeholder="0812xxxxxxxx"
+                                />
+                                {empErrors.phone_number && <p className="text-destructive text-xs">{empErrors.phone_number}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="emp_marital">Status Pernikahan (Marital Status)</Label>
+                                <Select
+                                    value={employeeForm.data.marital_status}
+                                    onValueChange={(value) => employeeForm.setData('marital_status', value as MaritalStatus)}
+                                >
+                                    <SelectTrigger id="emp_marital">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="SINGLE">Belum Menikah (SINGLE)</SelectItem>
+                                        <SelectItem value="MARRIED">Menikah (MARRIED)</SelectItem>
+                                        <SelectItem value="DIVORCED">Cerai Hidup (DIVORCED)</SelectItem>
+                                        <SelectItem value="WIDOWED">Cerai Mati (WIDOWED)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {empErrors.marital_status && <p className="text-destructive text-xs">{empErrors.marital_status}</p>}
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="emp_dependents">Jumlah Anak / Tanggungan (Dependents)</Label>
+                                <Input
+                                    id="emp_dependents"
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    value={employeeForm.data.dependents_count}
+                                    onChange={(e) => employeeForm.setData('dependents_count', e.target.value)}
+                                    required
+                                />
+                                {empErrors.dependents_count && (
+                                    <p className="text-destructive text-xs">{empErrors.dependents_count}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor="emp_address">Alamat Lengkap (Address)</Label>
+                                <textarea
+                                    id="emp_address"
+                                    rows={2}
+                                    value={employeeForm.data.address}
+                                    onChange={(e) => employeeForm.setData('address', e.target.value)}
+                                    placeholder="Alamat tempat tinggal lengkap..."
+                                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                                />
+                                {empErrors.address && <p className="text-destructive text-xs">{empErrors.address}</p>}
                             </div>
 
                             <div className="grid gap-2">
@@ -764,13 +1265,13 @@ export default function EmployeeDirectoryIndex({
                                 />
                             </div>
 
-                            <div className="grid gap-2 sm:col-span-2">
+                            <div className="grid gap-2">
                                 <Label htmlFor="emp_bank_acc">Bank Account Number (Encrypted)</Label>
                                 <Input
                                     id="emp_bank_acc"
                                     value={employeeForm.data.bank_account_number}
                                     onChange={(e) => employeeForm.setData('bank_account_number', e.target.value)}
-                                    placeholder="Leave blank to keep existing encrypted account number"
+                                    placeholder="Leave blank to keep existing"
                                 />
                             </div>
                         </div>

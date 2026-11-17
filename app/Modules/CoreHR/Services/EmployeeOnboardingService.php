@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
 use App\Modules\CoreHR\Contracts\PositionRepositoryInterface;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
+use App\Modules\CoreHR\Enums\MaritalStatus;
 use App\Modules\CoreHR\Events\EmployeeOnboarded;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\RBAC\Enums\RoleName;
@@ -57,11 +58,20 @@ class EmployeeOnboardingService
                 $status = $status->value;
             }
 
+            $maritalStatus = $payload['marital_status'] ?? MaritalStatus::SINGLE->value;
+            if ($maritalStatus instanceof MaritalStatus) {
+                $maritalStatus = $maritalStatus->value;
+            }
+
             /** @var Employee $employee */
             $employee = $this->employeeRepository->create([
                 'user_id' => $user->id,
                 'employee_code' => $payload['employee_code'],
                 'full_name' => $payload['full_name'] ?? $user->name,
+                'phone_number' => $payload['phone_number'] ?? null,
+                'address' => $payload['address'] ?? null,
+                'marital_status' => $maritalStatus,
+                'dependents_count' => isset($payload['dependents_count']) ? (int) $payload['dependents_count'] : 0,
                 'department_id' => (int) $payload['department_id'],
                 'position_id' => (int) $payload['position_id'],
                 'shift_id' => isset($payload['shift_id']) ? (int) $payload['shift_id'] : null,
@@ -83,6 +93,10 @@ class EmployeeOnboardingService
                 newValues: $this->sanitizeAuditPayload([
                     'user_id' => $user->id,
                     'employee_code' => $employee->employee_code,
+                    'phone_number' => $employee->phone_number,
+                    'address' => $employee->address,
+                    'marital_status' => $employee->marital_status?->value,
+                    'dependents_count' => $employee->dependents_count,
                     'department_id' => $employee->department_id,
                     'position_id' => $employee->position_id,
                     'manager_id' => $employee->manager_id,
@@ -132,6 +146,10 @@ class EmployeeOnboardingService
                 'employee_code' => $employee->employee_code,
                 'full_name' => $employee->full_name,
                 'email' => $employee->user?->email,
+                'phone_number' => $employee->phone_number,
+                'address' => $employee->address,
+                'marital_status' => $employee->marital_status?->value,
+                'dependents_count' => $employee->dependents_count,
                 'department_id' => $employee->department_id,
                 'position_id' => $employee->position_id,
                 'shift_id' => $employee->shift_id,
@@ -144,6 +162,10 @@ class EmployeeOnboardingService
 
             if (isset($payload['status']) && $payload['status'] instanceof EmploymentStatus) {
                 $payload['status'] = $payload['status']->value;
+            }
+
+            if (isset($payload['marital_status']) && $payload['marital_status'] instanceof MaritalStatus) {
+                $payload['marital_status'] = $payload['marital_status']->value;
             }
 
             if (isset($payload['name']) && ! isset($payload['full_name'])) {

@@ -59,6 +59,10 @@ class AttendanceController extends Controller
                 'id' => $employee->id,
                 'employee_code' => $employee->employee_code,
                 'full_name' => $employee->full_name,
+                'phone_number' => $employee->phone_number,
+                'address' => $employee->address,
+                'marital_status' => $employee->marital_status?->value ?? 'SINGLE',
+                'dependents_count' => (int) ($employee->dependents_count ?? 0),
                 'department_name' => $employee->department?->name,
                 'position_title' => $employee->position?->title,
                 'shift' => $employee->shift === null ? null : [

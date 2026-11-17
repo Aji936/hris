@@ -22,6 +22,8 @@ export type PayslipStatusValue = 'DRAFT' | 'PUBLISHED' | 'PAID';
 
 export type PayrollComponentTypeValue = 'ALLOWANCE' | 'DEDUCTION';
 
+export type MaritalStatusValue = 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED';
+
 export interface ShiftSummary {
     id: number;
     name: string;
@@ -34,6 +36,10 @@ export interface EssEmployeeSummary {
     id: number;
     employee_code: string;
     full_name: string;
+    phone_number?: string | null;
+    address?: string | null;
+    marital_status?: MaritalStatusValue;
+    dependents_count?: number;
     department_name?: string | null;
     position_title?: string | null;
     shift?: ShiftSummary | null;
@@ -129,6 +135,10 @@ export interface PayslipItemData {
 export interface PayslipEmployeeSnapshot {
     employee_code?: string;
     full_name?: string;
+    phone_number?: string | null;
+    address?: string | null;
+    marital_status?: MaritalStatusValue;
+    dependents_count?: number;
     department?: string;
     position?: string;
     bank_name?: string;

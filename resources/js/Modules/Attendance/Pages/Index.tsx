@@ -179,6 +179,10 @@ export default function AttendanceIndex({
                                 {employee.employee_code}
                                 {employee.position_title ? ` • ${employee.position_title}` : ''}
                             </p>
+                            <p className="text-muted-foreground text-xs">
+                                {employee.phone_number ? `${employee.phone_number} • ` : ''}
+                                {employee.marital_status ?? 'SINGLE'} ({employee.dependents_count ?? 0} dependents)
+                            </p>
                         </div>
                     )}
                 </div>

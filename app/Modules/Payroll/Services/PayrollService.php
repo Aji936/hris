@@ -514,10 +514,18 @@ class PayrollService
      */
     private function buildEmployeeSnapshot(Employee $employee, ?EmployeeSalary $activeSalary): array
     {
+        $maritalStatus = $employee->marital_status;
+        $dependentsCount = (int) ($employee->dependents_count ?? 0);
+
         return [
             'employee_id' => $employee->id,
             'employee_code' => $employee->employee_code,
             'full_name' => $employee->full_name,
+            'phone_number' => $employee->phone_number,
+            'address' => $employee->address,
+            'marital_status' => $maritalStatus?->value ?? 'SINGLE',
+            'dependents_count' => $dependentsCount,
+            'tax_status' => $maritalStatus?->ptkpCode($dependentsCount) ?? 'TK/0',
             'national_id_number' => $employee->national_id_number,
             'tax_id_number' => $employee->tax_id_number,
             'department_id' => $employee->department_id,
