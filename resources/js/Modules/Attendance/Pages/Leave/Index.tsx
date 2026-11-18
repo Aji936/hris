@@ -126,10 +126,10 @@ export default function LeaveIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Leave Requests" />
 
-            <div className="flex flex-1 flex-col gap-6 p-6">
+            <div className="flex flex-1 flex-col gap-5 p-4 sm:gap-6 sm:p-6">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">Leave Balances &amp; Requests ({currentYear})</h1>
+                        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Leave Balances &amp; Requests ({currentYear})</h1>
                         <p className="text-muted-foreground text-sm">
                             Track your annual quota allocation, pending reservations, and multi-level leave approvals.
                         </p>
@@ -138,7 +138,7 @@ export default function LeaveIndex({
                     {hasEmployeeProfile && (
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button type="button">
+                                <Button type="button" size="lg" className="min-h-11 w-full sm:w-auto">
                                     <CalendarPlus className="size-4" />
                                     Submit Leave Request
                                 </Button>

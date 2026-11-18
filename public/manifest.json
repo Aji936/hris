@@ -1,0 +1,24 @@
+{
+    "name": "HRIS — Employee Self-Service & HR Portal",
+    "short_name": "HRIS Portal",
+    "description": "Enterprise Human Resource Information System with Employee Self-Service for Attendance, Leave Management, and Official Payslips.",
+    "start_url": "/dashboard",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#09090b",
+    "theme_color": "#0f172a",
+    "icons": [
+        {
+            "src": "/logo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/favicon.ico",
+            "sizes": "48x48 32x32 16x16",
+            "type": "image/x-icon"
+        }
+    ]
+}

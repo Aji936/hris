@@ -71,10 +71,10 @@ export default function MyPayslips({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="My Payslips" />
 
-            <div className="flex flex-1 flex-col gap-6 p-6">
+            <div className="flex flex-1 flex-col gap-5 p-4 sm:gap-6 sm:p-6">
                 <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">My Payslips</h1>
+                        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">My Payslips</h1>
                         <p className="text-muted-foreground text-sm">
                             Access your official published monthly earnings statements and download PDF payslips.
                         </p>
@@ -212,12 +212,13 @@ export default function MyPayslips({
                                                             type="button"
                                                             variant="ghost"
                                                             size="sm"
+                                                            className="min-h-11 px-3"
                                                             onClick={() => setSelectedPayslip(payslip)}
                                                         >
                                                             <Eye className="size-4" />
                                                             Details
                                                         </Button>
-                                                        <Button asChild variant="outline" size="sm">
+                                                        <Button asChild variant="outline" size="sm" className="min-h-11 px-3">
                                                             <a href={`/payroll/payslips/${payslip.id}/pdf`}>
                                                                 <Download className="size-4" />
                                                                 Download PDF

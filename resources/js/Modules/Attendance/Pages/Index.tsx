@@ -10,7 +10,7 @@ import {
     type SharedData,
 } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Clock, LogIn, LogOut, MapPin, Timer } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Info, LogIn, LogOut, MapPin, Timer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -86,9 +86,29 @@ function getAttendanceBadgeClass(status: AttendanceStatusValue): string {
     }
 }
 
-function resolveBrowserLocation(): Promise<string | null> {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-        return Promise.resolve(null);
+interface LocationResolutionResult {
+    coords: string | null;
+    fallbackMessage: string | null;
+}
+
+function resolveBrowserLocation(): Promise<LocationResolutionResult> {
+    if (typeof window === 'undefined') {
+        return Promise.resolve({ coords: null, fallbackMessage: null });
+    }
+
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return Promise.resolve({
+            coords: null,
+            fallbackMessage:
+                'Koneksi HTTP Jaringan Lokal terdeteksi: Browser HP menonaktifkan GPS pada non-HTTPS, sehingga presensi dicatat otomatis menggunakan verifikasi IP Wi-Fi/LAN.',
+        });
+    }
+
+    if (!('geolocation' in navigator)) {
+        return Promise.resolve({
+            coords: null,
+            fallbackMessage: 'Perangkat tidak menyediakan sensor GPS; presensi menggunakan verifikasi IP jaringan.',
+        });
     }
 
     return new Promise((resolve) => {
@@ -96,12 +116,17 @@ function resolveBrowserLocation(): Promise<string | null> {
             (position) => {
                 const lat = position.coords.latitude.toFixed(6);
                 const lng = position.coords.longitude.toFixed(6);
-                resolve(`${lat},${lng}`);
+                resolve({ coords: `${lat},${lng}`, fallbackMessage: null });
             },
-            () => resolve(null),
+            () =>
+                resolve({
+                    coords: null,
+                    fallbackMessage:
+                        'Akses lokasi GPS tidak tersedia/ditolak di browser; presensi tetap dicatat menggunakan verifikasi alamat IP.',
+                }),
             {
                 enableHighAccuracy: false,
-                timeout: 3000,
+                timeout: 2500,
                 maximumAge: 60000,
             },
         );
@@ -125,6 +150,17 @@ export default function AttendanceIndex({
     });
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [detectedCoords, setDetectedCoords] = useState<string | null>(null);
+    const [geoFallbackNotice, setGeoFallbackNotice] = useState<string | null>(() => {
+        if (
+            typeof window !== 'undefined' &&
+            !window.isSecureContext &&
+            window.location.hostname !== 'localhost' &&
+            window.location.hostname !== '127.0.0.1'
+        ) {
+            return 'Mode Jaringan Lokal (HTTP): Browser HP membatasi GPS pada koneksi non-HTTPS. Clock-In & Clock-Out tetap diizinkan menggunakan verifikasi IP jaringan.';
+        }
+        return null;
+    });
 
     useEffect(() => {
         const intervalId = window.setInterval(() => {
@@ -139,9 +175,12 @@ export default function AttendanceIndex({
 
     const handleClockAction = async (action: 'clock-in' | 'clock-out'): Promise<void> => {
         setIsSubmitting(true);
-        const coords = await resolveBrowserLocation();
+        const { coords, fallbackMessage } = await resolveBrowserLocation();
         if (coords) {
             setDetectedCoords(coords);
+            setGeoFallbackNotice(null);
+        } else if (fallbackMessage) {
+            setGeoFallbackNotice(fallbackMessage);
         }
 
         const endpoint = action === 'clock-in' ? '/attendance/clock-in' : '/attendance/clock-out';
@@ -164,10 +203,10 @@ export default function AttendanceIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Daily Attendance" />
 
-            <div className="flex flex-1 flex-col gap-6 p-6">
+            <div className="flex flex-1 flex-col gap-5 p-4 sm:gap-6 sm:p-6">
                 <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">Daily Attendance</h1>
+                        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Daily Attendance</h1>
                         <p className="text-muted-foreground text-sm">
                             Record your daily clock-in and clock-out times and monitor {currentMonthLabel} attendance history.
                         </p>
@@ -195,6 +234,14 @@ export default function AttendanceIndex({
                     </Alert>
                 )}
 
+                {geoFallbackNotice && (
+                    <Alert className="border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-200">
+                        <Info className="size-4 text-sky-600 dark:text-sky-400" />
+                        <AlertTitle>Verifikasi Berbasis IP Aktif</AlertTitle>
+                        <AlertDescription>{geoFallbackNotice}</AlertDescription>
+                    </Alert>
+                )}
+
                 {(errorMessage || flash?.error) && (
                     <Alert variant="destructive">
                         <AlertCircle className="size-4" />
@@ -212,7 +259,7 @@ export default function AttendanceIndex({
                         </AlertDescription>
                     </Alert>
                 ) : (
-                    <div className="grid gap-6 lg:grid-cols-12">
+                    <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
                         <Card className="lg:col-span-5">
                             <CardHeader>
                                 <div className="flex items-center justify-between gap-2">
@@ -235,9 +282,9 @@ export default function AttendanceIndex({
                                 </CardDescription>
                             </CardHeader>
 
-                            <CardContent className="flex flex-col gap-6">
+                            <CardContent className="flex flex-col gap-5">
                                 <div className="bg-muted/40 flex flex-col items-center justify-center rounded-xl border py-6 text-center">
-                                    <div className="font-mono text-4xl font-bold tracking-wider tabular-nums">
+                                    <div className="font-mono text-3xl font-bold tracking-wider tabular-nums sm:text-4xl">
                                         {now.toLocaleTimeString('en-GB', {
                                             hour: '2-digit',
                                             minute: '2-digit',
@@ -275,25 +322,27 @@ export default function AttendanceIndex({
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <Button
                                         type="button"
+                                        size="lg"
                                         disabled={isSubmitting || hasClockedIn || !employee.shift}
                                         onClick={() => void handleClockAction('clock-in')}
-                                        className="w-full"
+                                        className="min-h-12 w-full text-base font-semibold"
                                     >
-                                        <LogIn className="size-4" />
+                                        <LogIn className="size-5" />
                                         {isSubmitting && !hasClockedIn ? 'Recording...' : 'Clock In'}
                                     </Button>
 
                                     <Button
                                         type="button"
+                                        size="lg"
                                         variant={hasClockedIn && !hasClockedOut ? 'default' : 'outline'}
                                         disabled={isSubmitting || !hasClockedIn || hasClockedOut}
                                         onClick={() => void handleClockAction('clock-out')}
-                                        className="w-full"
+                                        className="min-h-12 w-full text-base font-semibold"
                                     >
-                                        <LogOut className="size-4" />
+                                        <LogOut className="size-5" />
                                         {isSubmitting && hasClockedIn && !hasClockedOut ? 'Recording...' : 'Clock Out'}
                                     </Button>
                                 </div>
@@ -356,7 +405,7 @@ export default function AttendanceIndex({
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto border-t">
-                            <table className="w-full text-left text-sm">
+                            <table className="w-full min-w-[540px] text-left text-sm">
                                 <thead className="bg-muted/50 border-b text-xs uppercase">
                                     <tr>
                                         <th className="px-4 py-3">Date</th>
@@ -377,11 +426,11 @@ export default function AttendanceIndex({
                                     ) : (
                                         monthlyRecords.map((record) => (
                                             <tr key={record.id} className="hover:bg-muted/30 transition-colors">
-                                                <td className="px-4 py-3 font-medium">{formatDate(record.date)}</td>
-                                                <td className="px-4 py-3 font-mono text-xs">{formatTime(record.clock_in)}</td>
-                                                <td className="px-4 py-3 font-mono text-xs">{formatTime(record.clock_out)}</td>
-                                                <td className="px-4 py-3">{formatDuration(record.work_duration_minutes)}</td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-4 py-3 font-medium whitespace-nowrap">{formatDate(record.date)}</td>
+                                                <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{formatTime(record.clock_in)}</td>
+                                                <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{formatTime(record.clock_out)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap">{formatDuration(record.work_duration_minutes)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     {record.late_minutes > 0 ? (
                                                         <span className="font-medium text-amber-600 dark:text-amber-400">
                                                             {record.late_minutes} min
@@ -390,7 +439,7 @@ export default function AttendanceIndex({
                                                         <span className="text-muted-foreground">0 min</span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <Badge variant="outline" className={getAttendanceBadgeClass(record.status)}>
                                                         {record.status}
                                                     </Badge>
@@ -407,4 +456,3 @@ export default function AttendanceIndex({
         </AppLayout>
     );
 }
-
