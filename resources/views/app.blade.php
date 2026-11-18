@@ -30,11 +30,22 @@
                     $vitePageEntry = $moduleCandidate;
                 }
             }
+
+            $viteEntries = ['resources/js/app.tsx'];
+            $manifestPath = public_path('build/manifest.json');
+            if (! file_exists($manifestPath)) {
+                $viteEntries[] = $vitePageEntry;
+            } else {
+                $manifestData = json_decode((string) file_get_contents($manifestPath), true);
+                if (is_array($manifestData) && array_key_exists($vitePageEntry, $manifestData)) {
+                    $viteEntries[] = $vitePageEntry;
+                }
+            }
         @endphp
 
         @routes
         @viteReactRefresh
-        @vite(['resources/js/app.tsx', $vitePageEntry])
+        @vite($viteEntries)
         @inertiaHead
     </head>
     <body class="font-sans antialiased">

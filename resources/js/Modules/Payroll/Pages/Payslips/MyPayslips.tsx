@@ -219,7 +219,12 @@ export default function MyPayslips({
                                                             Details
                                                         </Button>
                                                         <Button asChild variant="outline" size="sm" className="min-h-11 px-3">
-                                                            <a href={`/payroll/payslips/${payslip.id}/pdf`}>
+                                                            <a
+                                                                href={`/payroll/payslips/${payslip.id}/pdf`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                download
+                                                            >
                                                                 <Download className="size-4" />
                                                                 Download PDF
                                                             </a>
@@ -298,7 +303,12 @@ export default function MyPayslips({
                                     </p>
                                 </div>
                                 <Button asChild>
-                                    <a href={`/payroll/payslips/${selectedPayslip.id}/pdf`}>
+                                    <a
+                                        href={`/payroll/payslips/${selectedPayslip.id}/pdf`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        download
+                                    >
                                         <Download className="size-4" />
                                         Download Official PDF
                                     </a>

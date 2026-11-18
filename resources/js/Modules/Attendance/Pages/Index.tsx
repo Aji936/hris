@@ -9,6 +9,7 @@ import {
     type BreadcrumbItem,
     type SharedData,
 } from '@/types';
+import { Capacitor } from '@capacitor/core';
 import { Head, router, usePage } from '@inertiajs/react';
 import { AlertCircle, CheckCircle2, Clock, Info, LogIn, LogOut, MapPin, Timer } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -91,24 +92,47 @@ interface LocationResolutionResult {
     fallbackMessage: string | null;
 }
 
-function resolveBrowserLocation(): Promise<LocationResolutionResult> {
+async function resolveBrowserLocation(): Promise<LocationResolutionResult> {
     if (typeof window === 'undefined') {
-        return Promise.resolve({ coords: null, fallbackMessage: null });
+        return { coords: null, fallbackMessage: null };
+    }
+
+    // Native Android / iOS Capacitor Runtime: use hardware GPS plugin directly
+    if (Capacitor.isNativePlatform()) {
+        try {
+            const { Geolocation } = await import('@capacitor/geolocation');
+            await Geolocation.requestPermissions();
+            const position = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: true,
+                timeout: 8000,
+                maximumAge: 30000,
+            });
+            const lat = position.coords.latitude.toFixed(6);
+            const lng = position.coords.longitude.toFixed(6);
+
+            return { coords: `${lat},${lng}`, fallbackMessage: null };
+        } catch {
+            return {
+                coords: null,
+                fallbackMessage:
+                    'Izin lokasi GPS Android belum diaktifkan; presensi tetap dicatat menggunakan verifikasi alamat IP.',
+            };
+        }
     }
 
     if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        return Promise.resolve({
+        return {
             coords: null,
             fallbackMessage:
                 'Koneksi HTTP Jaringan Lokal terdeteksi: Browser HP menonaktifkan GPS pada non-HTTPS, sehingga presensi dicatat otomatis menggunakan verifikasi IP Wi-Fi/LAN.',
-        });
+        };
     }
 
     if (!('geolocation' in navigator)) {
-        return Promise.resolve({
+        return {
             coords: null,
             fallbackMessage: 'Perangkat tidak menyediakan sensor GPS; presensi menggunakan verifikasi IP jaringan.',
-        });
+        };
     }
 
     return new Promise((resolve) => {
@@ -153,6 +177,7 @@ export default function AttendanceIndex({
     const [geoFallbackNotice, setGeoFallbackNotice] = useState<string | null>(() => {
         if (
             typeof window !== 'undefined' &&
+            !Capacitor.isNativePlatform() &&
             !window.isSecureContext &&
             window.location.hostname !== 'localhost' &&
             window.location.hostname !== '127.0.0.1'
