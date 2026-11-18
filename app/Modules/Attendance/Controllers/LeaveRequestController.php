@@ -15,14 +15,17 @@ use App\Modules\Attendance\Models\LeaveType;
 use App\Modules\Attendance\Requests\ActionLeaveRequest;
 use App\Modules\Attendance\Requests\SubmitLeaveRequest;
 use App\Modules\Attendance\Resources\LeaveRequestResource;
+use App\Modules\Attendance\Services\LeavePermitPdfService;
 use App\Modules\Attendance\Services\LeaveService;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\RBAC\Enums\PermissionName;
+use App\Modules\RBAC\Enums\RoleName;
 use App\Shared\Exceptions\DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -37,6 +40,7 @@ class LeaveRequestController extends Controller
         private readonly LeaveTypeRepositoryInterface $leaveTypeRepository,
         private readonly EmployeeRepositoryInterface $employeeRepository,
         private readonly LeaveService $leaveService,
+        private readonly LeavePermitPdfService $leavePermitPdfService,
     ) {}
 
     public function index(Request $request): JsonResponse|InertiaResponse
@@ -94,6 +98,16 @@ class LeaveRequestController extends Controller
         return Inertia::render('Attendance/Leave/Index', [
             'currentYear' => $currentYear,
             'hasEmployeeProfile' => $employee !== null,
+            'employeeProfile' => $employee === null ? null : [
+                'id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+                'full_name' => $employee->full_name,
+                'join_date' => $employee->join_date?->toDateString(),
+                'department_name' => $employee->department?->name,
+                'position_title' => $employee->position?->title,
+            ],
+            'canApprove' => $actor->can(PermissionName::LEAVE_APPROVE->value),
+            'isHrd' => $actor->hasRole([RoleName::HR_ADMIN->value, RoleName::SUPERADMIN->value]),
             'leaveBalances' => $balances,
             'leaveTypes' => $leaveTypes,
             'leaveRequests' => LeaveRequestResource::collection($records->getCollection())->resolve(),
@@ -108,6 +122,16 @@ class LeaveRequestController extends Controller
         Gate::authorize('view', $leaveRequest);
 
         return (new LeaveRequestResource($leaveRequest))->response();
+    }
+
+    public function printPdf(int|string $id): Response
+    {
+        $leaveRequest = $this->leaveRequestRepository->findWithRelations($id);
+        abort_if($leaveRequest === null, 404);
+
+        Gate::authorize('view', $leaveRequest);
+
+        return $this->leavePermitPdfService->download($leaveRequest);
     }
 
     public function store(SubmitLeaveRequest $request): JsonResponse|RedirectResponse
@@ -143,10 +167,10 @@ class LeaveRequestController extends Controller
                 ->setStatusCode(201);
         }
 
-        return redirect()->back()->with('success', 'Leave request submitted successfully.');
+        return redirect()->back()->with('success', 'Leave & Permit application submitted successfully.');
     }
 
-    public function approve(ActionLeaveRequest $request, int|string $id): JsonResponse
+    public function approve(ActionLeaveRequest $request, int|string $id): JsonResponse|RedirectResponse
     {
         $leaveRequest = $this->leaveRequestRepository->findWithRelations($id);
         abort_if($leaveRequest === null, 404);
@@ -155,11 +179,15 @@ class LeaveRequestController extends Controller
 
         /** @var User $actor */
         $actor = $request->user();
+        $validated = $request->validated();
+        $level = isset($validated['level']) ? (int) $validated['level'] : null;
 
         try {
             $updated = $this->leaveService->approveRequest(
                 leaveRequestId: $leaveRequest->id,
                 approverId: $actor->id,
+                level: $level,
+                hrdPayload: $validated,
             );
         } catch (DomainException $exception) {
             throw ValidationException::withMessages([
@@ -167,10 +195,14 @@ class LeaveRequestController extends Controller
             ]);
         }
 
-        return (new LeaveRequestResource($updated))->response();
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return (new LeaveRequestResource($updated))->response();
+        }
+
+        return redirect()->back()->with('success', 'Leave & Permit application updated successfully.');
     }
 
-    public function reject(ActionLeaveRequest $request, int|string $id): JsonResponse
+    public function reject(ActionLeaveRequest $request, int|string $id): JsonResponse|RedirectResponse
     {
         $leaveRequest = $this->leaveRequestRepository->findWithRelations($id);
         abort_if($leaveRequest === null, 404);
@@ -179,12 +211,14 @@ class LeaveRequestController extends Controller
 
         /** @var User $actor */
         $actor = $request->user();
+        $validated = $request->validated();
 
         try {
             $updated = $this->leaveService->rejectRequest(
                 leaveRequestId: $leaveRequest->id,
                 approverId: $actor->id,
-                rejectionReason: (string) $request->validated('rejection_reason'),
+                rejectionReason: (string) $validated['rejection_reason'],
+                hrdOtherNotes: isset($validated['hrd_other_notes']) ? (string) $validated['hrd_other_notes'] : null,
             );
         } catch (DomainException $exception) {
             throw ValidationException::withMessages([
@@ -192,7 +226,11 @@ class LeaveRequestController extends Controller
             ]);
         }
 
-        return (new LeaveRequestResource($updated))->response();
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return (new LeaveRequestResource($updated))->response();
+        }
+
+        return redirect()->back()->with('success', 'Leave & Permit application rejected.');
     }
 
     public function updateLeaveType(Request $request, LeaveType $leaveType): JsonResponse|RedirectResponse

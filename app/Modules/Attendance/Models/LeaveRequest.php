@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Attendance\Models;
 
 use App\Models\User;
+use App\Modules\Attendance\Enums\LeavePermitType;
 use App\Modules\Attendance\Enums\LeaveRequestStatus;
 use App\Modules\CoreHR\Models\Employee;
 use App\Shared\Traits\HasAuditColumns;
@@ -24,15 +25,33 @@ class LeaveRequest extends Model
     protected $fillable = [
         'employee_id',
         'leave_type_id',
+        'application_date',
+        'applicant_employee_code',
+        'applicant_hire_date',
+        'application_type',
         'start_date',
         'end_date',
+        'start_time',
+        'end_time',
         'total_days',
         'reason',
         'attachment_path',
+        'previous_leave_balance',
+        'current_leave_taken',
+        'remaining_leave_balance',
         'status',
+        'is_rejected',
         'approver_id',
         'approved_at',
         'rejection_reason',
+        'hrd_other_notes',
+        'applicant_signed_at',
+        'approved_1_by',
+        'approved_1_at',
+        'approved_2_by',
+        'approved_2_at',
+        'approved_3_by',
+        'approved_3_at',
         'created_by',
         'updated_by',
     ];
@@ -43,11 +62,22 @@ class LeaveRequest extends Model
     protected function casts(): array
     {
         return [
+            'application_date' => 'date',
+            'applicant_hire_date' => 'date',
+            'application_type' => LeavePermitType::class,
             'start_date' => 'date',
             'end_date' => 'date',
             'total_days' => 'integer',
+            'previous_leave_balance' => 'integer',
+            'current_leave_taken' => 'integer',
+            'remaining_leave_balance' => 'integer',
             'status' => LeaveRequestStatus::class,
+            'is_rejected' => 'boolean',
             'approved_at' => 'datetime',
+            'applicant_signed_at' => 'datetime',
+            'approved_1_at' => 'datetime',
+            'approved_2_at' => 'datetime',
+            'approved_3_at' => 'datetime',
         ];
     }
 
@@ -69,5 +99,20 @@ class LeaveRequest extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approver_id');
+    }
+
+    public function approver1(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_1_by');
+    }
+
+    public function approver2(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_2_by');
+    }
+
+    public function approver3(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_3_by');
     }
 }

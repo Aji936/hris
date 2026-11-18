@@ -466,7 +466,10 @@ class PayrollService
         $approvedLeaves = LeaveRequest::query()
             ->with('leaveType')
             ->where('employee_id', $employee->id)
-            ->where('status', LeaveRequestStatus::APPROVED->value)
+            ->whereIn('status', [
+                LeaveRequestStatus::APPROVED->value,
+                LeaveRequestStatus::APPROVED_HRD->value,
+            ])
             ->whereDate('start_date', '<=', $end->toDateString())
             ->whereDate('end_date', '>=', $start->toDateString())
             ->get();

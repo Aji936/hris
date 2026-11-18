@@ -29,8 +29,13 @@ class LeaveRequestRepository extends BaseRepository implements LeaveRequestRepos
         $query = $this->query()
             ->with([
                 'employee.manager',
+                'employee.department',
+                'employee.position',
                 'leaveType',
                 'approver:id,name,email',
+                'approver1:id,name,email',
+                'approver2:id,name,email',
+                'approver3:id,name,email',
             ])
             ->whereKey($id);
 
@@ -54,6 +59,9 @@ class LeaveRequestRepository extends BaseRepository implements LeaveRequestRepos
             ->where('employee_id', $employeeId)
             ->whereIn('status', [
                 LeaveRequestStatus::PENDING->value,
+                LeaveRequestStatus::APPROVED_L1->value,
+                LeaveRequestStatus::APPROVED_L2->value,
+                LeaveRequestStatus::APPROVED_HRD->value,
                 LeaveRequestStatus::APPROVED->value,
             ])
             ->whereDate('start_date', '<=', $endDate)
@@ -73,10 +81,13 @@ class LeaveRequestRepository extends BaseRepository implements LeaveRequestRepos
 
         return $this->query()
             ->with([
-                'employee:id,user_id,manager_id,employee_code,full_name,department_id',
+                'employee:id,user_id,manager_id,employee_code,full_name,join_date,department_id',
                 'employee.manager:id,user_id,employee_code,full_name',
                 'leaveType:id,code,name,is_paid,requires_attachment',
                 'approver:id,name,email',
+                'approver1:id,name,email',
+                'approver2:id,name,email',
+                'approver3:id,name,email',
             ])
             ->when(! $canViewAll, static function (Builder $query) use ($actor, $canViewTeam): void {
                 $query->whereHas('employee', static function (Builder $employeeQuery) use ($actor, $canViewTeam): void {

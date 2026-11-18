@@ -41,6 +41,10 @@ Route::middleware(['auth'])->prefix('attendance')->name('attendance.')->group(fu
             ->name('reject');
     });
 
+    Route::get('/leave-permits/{id}/print', [LeaveRequestController::class, 'printPdf'])
+        ->whereNumber('id')
+        ->name('leave-permits.print');
+
     Route::match(['put', 'patch'], '/leave-types/{leaveType}', [LeaveRequestController::class, 'updateLeaveType'])
         ->whereNumber('leaveType')
         ->middleware('permission:'.PermissionName::EMPLOYEE_UPDATE->value)

@@ -14,9 +14,20 @@ export type AttendanceStatusValue =
 export type LeaveRequestStatusValue =
     | 'DRAFT'
     | 'PENDING'
+    | 'APPROVED_L1'
+    | 'APPROVED_L2'
+    | 'APPROVED_HRD'
     | 'APPROVED'
     | 'REJECTED'
     | 'CANCELLED';
+
+export type LeavePermitTypeValue =
+    | 'SICK'
+    | 'SPECIAL_PERMISSION'
+    | 'ANNUAL_LEAVE'
+    | 'LATE_COMING'
+    | 'EARLY_LEAVING'
+    | 'NO_ABSENT_RECORD';
 
 export type PayslipStatusValue = 'DRAFT' | 'PUBLISHED' | 'PAID';
 
@@ -106,22 +117,62 @@ export interface LeaveRequestItem {
     id: number;
     employee_id: number;
     leave_type_id: number;
+    application_date?: string | null;
+    applicant_employee_code?: string | null;
+    applicant_hire_date?: string | null;
+    application_type?: LeavePermitTypeValue;
+    application_type_label?: string;
     start_date: string | null;
     end_date: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
     total_days: number;
     reason: string;
     attachment_path: string | null;
+    previous_leave_balance?: number | null;
+    current_leave_taken?: number | null;
+    remaining_leave_balance?: number | null;
     status: LeaveRequestStatusValue;
+    is_rejected?: boolean;
     approver_id: number | null;
     approved_at: string | null;
     rejection_reason: string | null;
+    hrd_other_notes?: string | null;
+    applicant_signed_at?: string | null;
+    approved_1_by?: number | null;
+    approved_1_at?: string | null;
+    approved_2_by?: number | null;
+    approved_2_at?: string | null;
+    approved_3_by?: number | null;
+    approved_3_at?: string | null;
+    employee?: {
+        id?: number;
+        employee_code?: string;
+        full_name?: string;
+        join_date?: string | null;
+    };
     leave_type?: LeaveTypeOption;
     approver?: LeaveApproverSummary | null;
+    approver1?: LeaveApproverSummary | null;
+    approver2?: LeaveApproverSummary | null;
+    approver3?: LeaveApproverSummary | null;
+}
+
+export interface LeaveApplicantProfile {
+    id: number;
+    employee_code: string;
+    full_name: string;
+    join_date: string | null;
+    department_name?: string | null;
+    position_title?: string | null;
 }
 
 export interface LeaveBalanceProps {
     currentYear: number;
     hasEmployeeProfile: boolean;
+    employeeProfile?: LeaveApplicantProfile | null;
+    canApprove?: boolean;
+    isHrd?: boolean;
     leaveBalances: LeaveBalanceItem[];
     leaveTypes: LeaveTypeOption[];
     leaveRequests: LeaveRequestItem[];
