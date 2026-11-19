@@ -12,7 +12,7 @@ import {
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CalendarDays, Clock, Landmark, LayoutGrid, LogOut, ReceiptText, Users } from 'lucide-react';
+import { CalendarDays, Clock, Landmark, LayoutGrid, LogOut, Megaphone, ReceiptText, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const essNavItems: NavItem[] = [
@@ -20,6 +20,11 @@ const essNavItems: NavItem[] = [
         title: 'Dashboard',
         url: '/dashboard',
         icon: LayoutGrid,
+    },
+    {
+        title: 'Pengumuman',
+        url: '/announcements',
+        icon: Megaphone,
     },
     {
         title: 'Daily Attendance',
@@ -49,6 +54,11 @@ export function AppSidebar() {
             title: 'Employee & Master Data',
             url: '/core-hr/employees',
             icon: Users,
+        });
+        hrAdminNavItems.push({
+            title: 'Kelola Pengumuman',
+            url: '/announcements',
+            icon: Megaphone,
         });
     }
     if (permissions.includes('payroll.view')) {

@@ -1,11 +1,15 @@
 <?php
 
+use App\Modules\CoreHR\Controllers\AnnouncementController;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
+use App\Modules\CoreHR\Models\Announcement;
 use App\Modules\CoreHR\Models\Employee;
+use App\Modules\CoreHR\Resources\AnnouncementResource;
 use App\Modules\RBAC\Enums\PermissionName;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -16,6 +20,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', function (Request $request) {
         $actor = $request->user();
         $canViewDirectory = (bool) $actor?->can(PermissionName::EMPLOYEE_VIEW->value);
+        $canManageAnnouncements = (bool) $actor?->can('create', Announcement::class);
 
         $approachingRetirements = [];
 
@@ -50,10 +55,41 @@ Route::middleware(['auth'])->group(function () {
                 ->all();
         }
 
+        $announcements = [];
+        if (Schema::hasTable('announcements')) {
+            $announcements = AnnouncementResource::collection(
+                Announcement::query()
+                    ->with('creator:id,name')
+                    ->visible()
+                    ->limit(5)
+                    ->get()
+            )->resolve();
+        }
+
         return Inertia::render('dashboard', [
             'approachingRetirements' => $approachingRetirements,
+            'announcements' => $announcements,
+            'canManageAnnouncements' => $canManageAnnouncements,
         ]);
     })->name('dashboard');
+
+    Route::get('/announcements', [AnnouncementController::class, 'index'])
+        ->name('announcements.index');
+
+    Route::post('/announcements', [AnnouncementController::class, 'store'])
+        ->name('announcements.store');
+
+    Route::match(['put', 'patch'], '/announcements/{announcement}', [AnnouncementController::class, 'update'])
+        ->whereNumber('announcement')
+        ->name('announcements.update');
+
+    Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])
+        ->whereNumber('announcement')
+        ->name('announcements.destroy');
+
+    Route::get('/announcements/{announcement}/attachment', [AnnouncementController::class, 'downloadAttachment'])
+        ->whereNumber('announcement')
+        ->name('announcements.attachment');
 });
 
 require __DIR__.'/payroll.php';

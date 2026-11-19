@@ -12,8 +12,10 @@ use App\Modules\Attendance\Models\LeaveBalance;
 use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\LeaveType;
 use App\Modules\Attendance\Models\Shift;
+use App\Modules\CoreHR\Enums\AnnouncementCategory;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Modules\CoreHR\Enums\MaritalStatus;
+use App\Modules\CoreHR\Models\Announcement;
 use App\Modules\CoreHR\Models\Department;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\CoreHR\Models\Position;
@@ -490,6 +492,49 @@ class ProductionDemoSeeder extends Seeder
 
             $payrollService->approvePayroll($generatedBatch->id, $superadmin->id);
         }
+
+        // 10. Seed Realistic Company Announcements for Dashboard Widget
+        Announcement::query()->updateOrCreate(
+            ['title' => 'Kebijakan Baru Pengajuan Cuti & Izin (3-Level Approval & Cetak PDF)'],
+            [
+                'category' => AnnouncementCategory::POLICY->value,
+                'content' => "Seluruh karyawan kini dapat mengajukan permohonan Cuti Tahunan, Sakit, Izin Khusus, Datang Terlambat, Pulang Awal, maupun Lupa Absen secara digital melalui menu Leave & Permit Application.\n\nSetiap permohonan akan melalui verifikasi bertingkat (Approved I Asst. Head → Approved II Dept. Manager → Approved III HRD) dan formulir resmi dapat diunduh dalam format PDF.",
+                'is_pinned' => true,
+                'is_active' => true,
+                'published_at' => $today->subDays(2)->setTime(9, 0),
+                'expires_at' => null,
+                'created_by' => $hrAdmin->id,
+                'updated_by' => $hrAdmin->id,
+            ],
+        );
+
+        Announcement::query()->updateOrCreate(
+            ['title' => 'Jadwal Libur Nasional & Cuti Bersama Akhir Tahun 2026'],
+            [
+                'category' => AnnouncementCategory::INFO->value,
+                'content' => "Mengacu pada Surat Keputusan Bersama (SKB) 3 Menteri, diberitahukan kepada seluruh karyawan bahwa libur Hari Raya dan Cuti Bersama akhir tahun akan berlangsung pada tanggal 24–25 Desember 2026.\n\nBagi karyawan di divisi operasional yang bertugas sesuai jadwal shift, perhitungan uang lembur dan penggantian hari libur berlaku sesuai Peraturan Perusahaan.",
+                'is_pinned' => true,
+                'is_active' => true,
+                'published_at' => $today->subDays(1)->setTime(10, 30),
+                'expires_at' => null,
+                'created_by' => $hrAdmin->id,
+                'updated_by' => $hrAdmin->id,
+            ],
+        );
+
+        Announcement::query()->updateOrCreate(
+            ['title' => 'Undangan Townhall Meeting & Apresiasi Karyawan Kuartal IV'],
+            [
+                'category' => AnnouncementCategory::EVENT->value,
+                'content' => 'Manajemen mengundang seluruh karyawan dari departemen Engineering, Operations, HR, dan Finance untuk hadir dalam acara Townhall Meeting Kuartal IV yang akan diselenggarakan pada hari Jumat pukul 14.00 WIB di Auditorium Utama & melalui Zoom.',
+                'is_pinned' => false,
+                'is_active' => true,
+                'published_at' => $today->setTime(8, 30),
+                'expires_at' => $today->addDays(30)->endOfDay(),
+                'created_by' => $superadmin->id,
+                'updated_by' => $superadmin->id,
+            ],
+        );
     }
 
     private function upsertUser(string $email, string $name, RoleName $role): User
