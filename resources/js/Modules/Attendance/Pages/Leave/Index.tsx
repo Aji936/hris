@@ -230,13 +230,13 @@ export default function LeaveIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Leave & Permit Application" />
 
-            <div className="flex flex-1 flex-col gap-5 p-4 sm:gap-6 sm:p-6">
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex flex-1 flex-col gap-4 overflow-x-hidden p-3.5 sm:gap-6 sm:p-6">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                     <div>
-                        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                        <h1 className="text-lg font-semibold tracking-tight sm:text-2xl">
                             Leave &amp; Permit Application ({currentYear})
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-xs sm:text-sm">
                             Official leave &amp; permit submission, HRD leave calculation, 3-level approval workflow, and printable PDF form.
                         </p>
                     </div>
@@ -250,12 +250,14 @@ export default function LeaveIndex({
                                 </Button>
                             </DialogTrigger>
 
-                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                                    <DialogHeader>
-                                        <DialogTitle>LEAVE &amp; PERMIT APPLICATION</DialogTitle>
-                                        <DialogDescription>
-                                            Formulir Permohonan Cuti &amp; Izin Karyawan. Identitas pemohon terisi otomatis dari profil Anda.
+                            <DialogContent className="max-h-[88vh] w-[95vw] max-w-full overflow-y-auto p-3.5 sm:max-w-2xl sm:p-6">
+                                <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 sm:gap-4">
+                                    <DialogHeader className="sticky top-0 z-10 border-b bg-white pb-2.5 dark:bg-slate-950">
+                                        <DialogTitle className="text-base sm:text-lg">
+                                            LEAVE &amp; PERMIT APPLICATION
+                                        </DialogTitle>
+                                        <DialogDescription className="text-xs sm:text-sm">
+                                            Formulir Permohonan Cuti &amp; Izin Karyawan. Identitas pemohon terisi otomatis.
                                         </DialogDescription>
                                     </DialogHeader>
 
@@ -268,35 +270,43 @@ export default function LeaveIndex({
                                     )}
 
                                     {/* Read-Only Applicant Identity Header */}
-                                    <div className="bg-muted/40 grid grid-cols-2 gap-3 rounded-lg border p-3 text-xs sm:grid-cols-4">
-                                        <div>
+                                    <div className="bg-muted/40 grid grid-cols-1 gap-2 rounded-lg border p-2.5 text-xs sm:grid-cols-2 sm:gap-4 sm:text-sm">
+                                        <div className="flex items-center justify-between sm:block">
                                             <p className="text-muted-foreground">Date / Tanggal</p>
-                                            <p className="mt-0.5 font-mono font-semibold">{todayDate}</p>
+                                            <p className="font-mono font-semibold sm:mt-0.5">{todayDate}</p>
                                         </div>
-                                        <div>
+                                        <div className="flex items-center justify-between sm:block">
                                             <p className="text-muted-foreground">Name / Nama</p>
-                                            <p className="mt-0.5 font-semibold">{employeeProfile?.full_name ?? page.props.auth.user.name}</p>
+                                            <p className="truncate font-semibold sm:mt-0.5">
+                                                {employeeProfile?.full_name ?? page.props.auth.user.name}
+                                            </p>
                                         </div>
-                                        <div>
+                                        <div className="flex items-center justify-between sm:block">
                                             <p className="text-muted-foreground">Employee No / NIK</p>
-                                            <p className="mt-0.5 font-mono font-semibold">{employeeProfile?.employee_code ?? '-'}</p>
+                                            <p className="font-mono font-semibold sm:mt-0.5">
+                                                {employeeProfile?.employee_code ?? '-'}
+                                            </p>
                                         </div>
-                                        <div>
-                                            <p className="text-muted-foreground">Hire Date / Tgl Masuk</p>
-                                            <p className="mt-0.5 font-mono font-semibold">{employeeProfile?.join_date ?? '-'}</p>
+                                        <div className="flex items-center justify-between sm:block">
+                                            <p className="text-muted-foreground">Join Date / Tgl Masuk</p>
+                                            <p className="font-mono font-semibold sm:mt-0.5">
+                                                {employeeProfile?.join_date ?? '-'}
+                                            </p>
                                         </div>
                                     </div>
 
                                     {/* 6 Application Types Checkboxes / Radio Cards */}
-                                    <div className="grid gap-2">
-                                        <Label>Application Type / Jenis Permohonan</Label>
-                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div className="grid gap-1.5">
+                                        <Label className="text-xs sm:text-sm">
+                                            Application Type / Jenis Permohonan
+                                        </Label>
+                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                             {APPLICATION_TYPES.map((item) => {
                                                 const isChecked = form.data.application_type === item.value;
                                                 return (
                                                     <label
                                                         key={item.value}
-                                                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                                                        className={`flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors sm:text-sm ${
                                                             isChecked
                                                                 ? 'border-primary bg-primary/5 ring-primary/30 ring-1'
                                                                 : 'hover:bg-muted/40'
@@ -314,11 +324,13 @@ export default function LeaveIndex({
                                                                     leave_type_id: findMatchingLeaveTypeId(item.value),
                                                                 }));
                                                             }}
-                                                            className="mt-1"
+                                                            className="mt-0.5 shrink-0"
                                                         />
-                                                        <div>
-                                                            <p className="font-medium leading-none">{item.label}</p>
-                                                            <p className="text-muted-foreground mt-1 text-xs">{item.sublabel}</p>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate font-medium leading-tight">{item.label}</p>
+                                                            <p className="text-muted-foreground mt-0.5 truncate text-[11px] sm:text-xs">
+                                                                {item.sublabel}
+                                                            </p>
                                                         </div>
                                                     </label>
                                                 );
@@ -326,12 +338,15 @@ export default function LeaveIndex({
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="start_date">Start Date / Tanggal Mulai</Label>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="start_date" className="text-xs sm:text-sm">
+                                                Start Date / Tanggal Mulai
+                                            </Label>
                                             <Input
                                                 id="start_date"
                                                 type="date"
+                                                className="w-full max-w-full text-sm sm:text-base"
                                                 value={form.data.start_date}
                                                 onChange={(e) => form.setData('start_date', e.target.value)}
                                                 required
@@ -341,11 +356,14 @@ export default function LeaveIndex({
                                             )}
                                         </div>
 
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="end_date">End Date / Tanggal Selesai</Label>
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="end_date" className="text-xs sm:text-sm">
+                                                End Date / Tanggal Selesai
+                                            </Label>
                                             <Input
                                                 id="end_date"
                                                 type="date"
+                                                className="w-full max-w-full text-sm sm:text-base"
                                                 min={form.data.start_date || undefined}
                                                 value={form.data.end_date}
                                                 onChange={(e) => form.setData('end_date', e.target.value)}
@@ -358,21 +376,27 @@ export default function LeaveIndex({
                                     </div>
 
                                     {selectedPermitMeta?.usesTime && (
-                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="start_time">Start Time / Jam Mulai</Label>
+                                        <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
+                                            <div className="grid gap-1.5">
+                                                <Label htmlFor="start_time" className="text-xs sm:text-sm">
+                                                    Start Time / Jam Mulai
+                                                </Label>
                                                 <Input
                                                     id="start_time"
                                                     type="time"
+                                                    className="w-full max-w-full text-sm sm:text-base"
                                                     value={form.data.start_time}
                                                     onChange={(e) => form.setData('start_time', e.target.value)}
                                                 />
                                             </div>
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="end_time">End Time / Jam Selesai</Label>
+                                            <div className="grid gap-1.5">
+                                                <Label htmlFor="end_time" className="text-xs sm:text-sm">
+                                                    End Time / Jam Selesai
+                                                </Label>
                                                 <Input
                                                     id="end_time"
                                                     type="time"
+                                                    className="w-full max-w-full text-sm sm:text-base"
                                                     value={form.data.end_time}
                                                     onChange={(e) => form.setData('end_time', e.target.value)}
                                                 />
@@ -380,8 +404,10 @@ export default function LeaveIndex({
                                         </div>
                                     )}
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="reason">Reason / Contents (Alasan Permohonan)</Label>
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="reason" className="text-xs sm:text-sm">
+                                            Reason / Contents (Alasan Permohonan)
+                                        </Label>
                                         <textarea
                                             id="reason"
                                             rows={3}
@@ -389,26 +415,27 @@ export default function LeaveIndex({
                                             onChange={(e) => form.setData('reason', e.target.value)}
                                             placeholder="Tuliskan alasan lengkap pengajuan cuti / izin..."
                                             required
-                                            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                                            className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full max-w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px] sm:text-base"
                                         />
                                         {formErrors.reason && (
                                             <p className="text-destructive text-xs">{formErrors.reason}</p>
                                         )}
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="attachment">
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="attachment" className="text-xs sm:text-sm">
                                             Supporting Attachment{' '}
                                             {selectedLeaveType?.requires_attachment && form.data.application_type === 'SICK' ? (
                                                 <span className="text-destructive font-medium">(Required — Surat Dokter)</span>
                                             ) : (
-                                                <span className="text-muted-foreground font-normal">(Optional — PDF/JPG/PNG, max 5MB)</span>
+                                                <span className="text-muted-foreground font-normal">(Optional — PDF/JPG/PNG)</span>
                                             )}
                                         </Label>
                                         <Input
                                             id="attachment"
                                             type="file"
                                             accept=".pdf,.jpg,.jpeg,.png"
+                                            className="w-full max-w-full text-sm sm:text-base"
                                             onChange={(e) => {
                                                 const selectedFile = e.target.files?.[0] ?? null;
                                                 form.setData('attachment', selectedFile);
@@ -419,16 +446,21 @@ export default function LeaveIndex({
                                         )}
                                     </div>
 
-                                    <DialogFooter className="pt-2">
+                                    <DialogFooter className="sticky bottom-0 z-10 border-t bg-white pt-2.5 dark:bg-slate-950">
                                         <Button
                                             type="button"
                                             variant="outline"
+                                            className="min-h-10 w-full sm:w-auto"
                                             onClick={() => setIsDialogOpen(false)}
                                             disabled={form.processing}
                                         >
                                             Cancel
                                         </Button>
-                                        <Button type="submit" disabled={form.processing}>
+                                        <Button
+                                            type="submit"
+                                            className="min-h-10 w-full sm:w-auto"
+                                            disabled={form.processing}
+                                        >
                                             {form.processing ? 'Submitting...' : 'Sign & Submit Application'}
                                         </Button>
                                     </DialogFooter>
@@ -456,62 +488,147 @@ export default function LeaveIndex({
                     </Alert>
                 )}
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Total Quota ({currentYear})</CardDescription>
-                            <CardTitle className="text-3xl tabular-nums">{aggregateTotals.total} days</CardTitle>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+                    <Card className="p-3 sm:p-0">
+                        <CardHeader className="p-0 pb-1.5 sm:p-6 sm:pb-2">
+                            <CardDescription className="text-xs">Total Quota ({currentYear})</CardDescription>
+                            <CardTitle className="text-xl tabular-nums sm:text-3xl">{aggregateTotals.total} days</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="hidden sm:block">
                             <p className="text-muted-foreground text-xs">Combined entitlement across active leave types</p>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Used Quota</CardDescription>
-                            <CardTitle className="text-3xl tabular-nums">{aggregateTotals.used} days</CardTitle>
+                    <Card className="p-3 sm:p-0">
+                        <CardHeader className="p-0 pb-1.5 sm:p-6 sm:pb-2">
+                            <CardDescription className="text-xs">Used Quota</CardDescription>
+                            <CardTitle className="text-xl tabular-nums sm:text-3xl">{aggregateTotals.used} days</CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="hidden sm:block">
                             <p className="text-muted-foreground text-xs">Approved leave days deducted this year</p>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Pending / Reserved</CardDescription>
-                            <CardTitle className="text-3xl text-amber-600 tabular-nums dark:text-amber-400">
+                    <Card className="p-3 sm:p-0">
+                        <CardHeader className="p-0 pb-1.5 sm:p-6 sm:pb-2">
+                            <CardDescription className="text-xs">Pending / Reserved</CardDescription>
+                            <CardTitle className="text-xl text-amber-600 tabular-nums sm:text-3xl dark:text-amber-400">
                                 {aggregateTotals.pending} days
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="hidden sm:block">
                             <p className="text-muted-foreground text-xs">Locked while awaiting approval</p>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Remaining Quota</CardDescription>
-                            <CardTitle className="text-3xl text-emerald-600 tabular-nums dark:text-emerald-400">
+                    <Card className="p-3 sm:p-0">
+                        <CardHeader className="p-0 pb-1.5 sm:p-6 sm:pb-2">
+                            <CardDescription className="text-xs">Remaining Quota</CardDescription>
+                            <CardTitle className="text-xl text-emerald-600 tabular-nums sm:text-3xl dark:text-emerald-400">
                                 {aggregateTotals.remaining} days
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="hidden sm:block">
                             <p className="text-muted-foreground text-xs">Available to request right now</p>
                         </CardContent>
                     </Card>
                 </div>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Leave &amp; Permit Applications</CardTitle>
-                        <CardDescription>
+                    <CardHeader className="p-3.5 sm:p-6">
+                        <CardTitle className="text-base sm:text-lg">Leave &amp; Permit Applications</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
                             Track 3-level approval signatures (Assistant Head → Dept. Manager → HRD) and print official PDF forms.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto border-t">
-                            <table className="w-full min-w-[760px] text-left text-sm">
+                        {/* Mobile Card List View (< 640px) */}
+                        <div className="divide-y border-t sm:hidden">
+                            {leaveRequests.length === 0 ? (
+                                <div className="text-muted-foreground px-3.5 py-6 text-center text-xs">
+                                    No leave or permit applications submitted yet.
+                                </div>
+                            ) : (
+                                leaveRequests.map((requestItem) => (
+                                    <div key={`mobile-${requestItem.id}`} className="flex flex-col gap-2.5 p-3.5 text-xs">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold">
+                                                    {requestItem.application_type_label ?? requestItem.leave_type?.name ?? 'Annual Leave'}
+                                                </p>
+                                                <p className="text-muted-foreground truncate">
+                                                    {requestItem.employee?.full_name ?? employeeProfile?.full_name ?? `Emp #${requestItem.employee_id}`}
+                                                    {' • '}
+                                                    <span className="font-mono">
+                                                        {requestItem.applicant_employee_code ?? requestItem.employee?.employee_code ?? '-'}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <Badge variant="outline" className={getLeaveStatusBadgeClass(requestItem.status)}>
+                                                {requestItem.status}
+                                            </Badge>
+                                        </div>
+
+                                        <div className="bg-muted/30 grid grid-cols-2 gap-2 rounded-md border p-2 font-mono text-[11px]">
+                                            <div>
+                                                <span className="text-muted-foreground block font-sans">Date / Time</span>
+                                                <span>{formatDateRange(requestItem.start_date, requestItem.end_date)} ({requestItem.total_days}d)</span>
+                                                {(requestItem.start_time || requestItem.end_time) && (
+                                                    <span className="text-muted-foreground block">
+                                                        {requestItem.start_time ?? '-'} - {requestItem.end_time ?? '-'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground block font-sans">HRD Balance</span>
+                                                <span>
+                                                    {requestItem.previous_leave_balance ?? '-'} /{' '}
+                                                    {requestItem.current_leave_taken ?? requestItem.total_days} /{' '}
+                                                    <strong className="text-emerald-600 dark:text-emerald-400">
+                                                        {requestItem.remaining_leave_balance ?? '-'}
+                                                    </strong>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-muted-foreground line-clamp-2">{requestItem.reason}</p>
+
+                                        {requestItem.rejection_reason && (
+                                            <p className="text-destructive text-xs font-medium">
+                                                Rejected: {requestItem.rejection_reason}
+                                            </p>
+                                        )}
+
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="min-h-9 flex-1 text-xs"
+                                                onClick={() => openReviewModal(requestItem)}
+                                            >
+                                                <Eye className="size-3.5" />
+                                                {canApprove ? 'Verify / Sign' : 'Details'}
+                                            </Button>
+                                            <Button asChild variant="outline" size="sm" className="min-h-9 flex-1 text-xs">
+                                                <a
+                                                    href={`/attendance/leave-permits/${requestItem.id}/print`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <Printer className="size-3.5" />
+                                                    Print PDF
+                                                </a>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Desktop / Tablet Table View (>= 640px) wrapped in overflow-x-auto */}
+                        <div className="hidden overflow-x-auto border-t sm:block">
+                            <table className="w-full text-left text-sm">
                                 <thead className="bg-muted/50 border-b text-xs uppercase">
                                     <tr>
                                         <th className="px-4 py-3">Applicant</th>
@@ -616,19 +733,19 @@ export default function LeaveIndex({
 
             {/* Multi-Level Approval, HRD Leave Calculation & 4-Signature Form Modal */}
             <Dialog open={selectedRequest !== null} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+                <DialogContent className="max-h-[88vh] w-[95vw] max-w-full overflow-y-auto p-3.5 sm:max-w-2xl sm:p-6">
                     {selectedRequest && (
-                        <div className="flex flex-col gap-4">
-                            <DialogHeader>
-                                <div className="flex items-center justify-between gap-2">
-                                    <DialogTitle>
+                        <div className="flex flex-col gap-3.5 sm:gap-4">
+                            <DialogHeader className="sticky top-0 z-10 border-b bg-white pb-2.5 dark:bg-slate-950">
+                                <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
+                                    <DialogTitle className="text-base sm:text-lg">
                                         Leave &amp; Permit Application #{selectedRequest.id}
                                     </DialogTitle>
                                     <Badge variant="outline" className={getLeaveStatusBadgeClass(selectedRequest.status)}>
                                         {selectedRequest.status}
                                     </Badge>
                                 </div>
-                                <DialogDescription>
+                                <DialogDescription className="text-xs sm:text-sm">
                                     {selectedRequest.application_type_label} •{' '}
                                     {formatDateRange(selectedRequest.start_date, selectedRequest.end_date)} ({selectedRequest.total_days} day(s))
                                 </DialogDescription>
@@ -643,49 +760,50 @@ export default function LeaveIndex({
                             )}
 
                             {/* Applicant Identity & Reason Summary */}
-                            <div className="bg-muted/30 grid grid-cols-2 gap-3 rounded-lg border p-3 text-xs sm:grid-cols-4">
-                                <div>
-                                    <p className="text-muted-foreground">Application Date</p>
-                                    <p className="mt-0.5 font-mono font-semibold">{selectedRequest.application_date ?? '-'}</p>
+                            <div className="bg-muted/30 grid grid-cols-1 gap-2 rounded-lg border p-2.5 text-xs sm:grid-cols-2 sm:gap-4 sm:text-sm">
+                                <div className="flex items-center justify-between sm:block">
+                                    <p className="text-muted-foreground">Date / Tanggal</p>
+                                    <p className="font-mono font-semibold sm:mt-0.5">{selectedRequest.application_date ?? '-'}</p>
                                 </div>
-                                <div>
-                                    <p className="text-muted-foreground">Employee Name</p>
-                                    <p className="mt-0.5 font-semibold">
+                                <div className="flex items-center justify-between sm:block">
+                                    <p className="text-muted-foreground">Name / Nama</p>
+                                    <p className="truncate font-semibold sm:mt-0.5">
                                         {selectedRequest.employee?.full_name ?? employeeProfile?.full_name ?? '-'}
                                     </p>
                                 </div>
-                                <div>
+                                <div className="flex items-center justify-between sm:block">
                                     <p className="text-muted-foreground">Employee No</p>
-                                    <p className="mt-0.5 font-mono font-semibold">
+                                    <p className="font-mono font-semibold sm:mt-0.5">
                                         {selectedRequest.applicant_employee_code ?? selectedRequest.employee?.employee_code ?? '-'}
                                     </p>
                                 </div>
-                                <div>
-                                    <p className="text-muted-foreground">Hire Date</p>
-                                    <p className="mt-0.5 font-mono font-semibold">
+                                <div className="flex items-center justify-between sm:block">
+                                    <p className="text-muted-foreground">Join Date</p>
+                                    <p className="font-mono font-semibold sm:mt-0.5">
                                         {selectedRequest.applicant_hire_date ?? selectedRequest.employee?.join_date ?? '-'}
                                     </p>
                                 </div>
-                                <div className="col-span-2 sm:col-span-4">
+                                <div className="border-t pt-2 sm:col-span-2">
                                     <p className="text-muted-foreground">Reason / Contents</p>
-                                    <p className="mt-0.5 text-sm font-medium">{selectedRequest.reason}</p>
+                                    <p className="mt-0.5 text-xs font-medium sm:text-sm">{selectedRequest.reason}</p>
                                 </div>
                             </div>
 
                             {/* Calculation of Leave (Fill by HRD) */}
-                            <div className="rounded-lg border p-4">
-                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider">
+                            <div className="rounded-lg border p-3 sm:p-4">
+                                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider">
                                     Calculation of Leave (Fill by HRD) / Perhitungan Cuti
                                 </p>
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                    <div className="grid gap-1.5">
+                                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                                    <div className="grid gap-1">
                                         <Label htmlFor="calc_prev" className="text-xs">
-                                            Previous Leave Balance (Sisa Sebelumnya)
+                                            Previous Balance (Sisa Awal)
                                         </Label>
                                         <Input
                                             id="calc_prev"
                                             type="number"
                                             disabled={!isHrd}
+                                            className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.previous_leave_balance}
                                             onChange={(e) => {
                                                 const prev = Number(e.target.value || 0);
@@ -698,14 +816,15 @@ export default function LeaveIndex({
                                             }}
                                         />
                                     </div>
-                                    <div className="grid gap-1.5">
+                                    <div className="grid gap-1">
                                         <Label htmlFor="calc_taken" className="text-xs">
-                                            Current Leave Taken (Diambil Saat Ini)
+                                            Current Leave Taken (Diambil)
                                         </Label>
                                         <Input
                                             id="calc_taken"
                                             type="number"
                                             disabled={!isHrd}
+                                            className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.current_leave_taken}
                                             onChange={(e) => {
                                                 const prev = Number(reviewForm.data.previous_leave_balance || 0);
@@ -718,7 +837,7 @@ export default function LeaveIndex({
                                             }}
                                         />
                                     </div>
-                                    <div className="grid gap-1.5">
+                                    <div className="grid gap-1">
                                         <Label htmlFor="calc_rem" className="text-xs">
                                             Remaining Balance (Sisa Akhir)
                                         </Label>
@@ -726,13 +845,14 @@ export default function LeaveIndex({
                                             id="calc_rem"
                                             type="number"
                                             disabled={!isHrd}
+                                            className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.remaining_leave_balance}
                                             onChange={(e) => reviewForm.setData('remaining_leave_balance', e.target.value)}
                                         />
                                     </div>
                                 </div>
 
-                                <div className="mt-4 grid gap-3 border-t pt-3">
+                                <div className="mt-3 grid gap-2.5 border-t pt-3">
                                     <div className="flex items-center space-x-2">
                                         <Checkbox
                                             id="is_rejected_chk"
@@ -742,19 +862,20 @@ export default function LeaveIndex({
                                                 reviewForm.setData('is_rejected', Boolean(checked))
                                             }
                                         />
-                                        <Label htmlFor="is_rejected_chk" className="text-destructive font-semibold">
+                                        <Label htmlFor="is_rejected_chk" className="text-destructive text-xs font-semibold sm:text-sm">
                                             REJECTED / Ditolak
                                         </Label>
                                     </div>
 
                                     {reviewForm.data.is_rejected && (
-                                        <div className="grid gap-1.5">
+                                        <div className="grid gap-1">
                                             <Label htmlFor="rej_reason" className="text-xs">
                                                 Rejection Reason / Alasan Penolakan
                                             </Label>
                                             <Input
                                                 id="rej_reason"
                                                 disabled={!canApprove}
+                                                className="w-full max-w-full text-sm sm:text-base"
                                                 value={reviewForm.data.rejection_reason}
                                                 onChange={(e) => reviewForm.setData('rejection_reason', e.target.value)}
                                                 placeholder="Tuliskan alasan penolakan..."
@@ -762,13 +883,14 @@ export default function LeaveIndex({
                                         </div>
                                     )}
 
-                                    <div className="grid gap-1.5">
+                                    <div className="grid gap-1">
                                         <Label htmlFor="hrd_notes" className="text-xs">
                                             Others / Lain-lain (HRD Notes)
                                         </Label>
                                         <Input
                                             id="hrd_notes"
                                             disabled={!canApprove}
+                                            className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.hrd_other_notes}
                                             onChange={(e) => reviewForm.setData('hrd_other_notes', e.target.value)}
                                             placeholder="Catatan tambahan HRD / Lain-lain..."
@@ -778,56 +900,72 @@ export default function LeaveIndex({
                             </div>
 
                             {/* 4 Aligned Digital Signature Boxes */}
-                            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                                <div className="rounded-lg border p-3 text-center text-xs">
-                                    <p className="text-muted-foreground font-semibold">Yang Mengajukan</p>
-                                    <p className="text-muted-foreground text-[10px]">Applicant</p>
-                                    <p className="mt-4 font-semibold">
-                                        {selectedRequest.employee?.full_name ?? employeeProfile?.full_name ?? 'Applicant'}
-                                    </p>
-                                    <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
-                                        {selectedRequest.applicant_signed_at
-                                            ? selectedRequest.applicant_signed_at.slice(0, 10)
-                                            : 'Signed'}
-                                    </p>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                <div className="flex h-20 flex-col justify-between rounded-lg border p-2 text-center text-xs sm:h-24 sm:p-2.5">
+                                    <div>
+                                        <p className="text-muted-foreground font-semibold leading-tight">Yang Mengajukan</p>
+                                        <p className="text-muted-foreground text-[10px]">Applicant</p>
+                                    </div>
+                                    <div>
+                                        <p className="truncate font-semibold">
+                                            {selectedRequest.employee?.full_name ?? employeeProfile?.full_name ?? 'Applicant'}
+                                        </p>
+                                        <p className="text-muted-foreground font-mono text-[10px]">
+                                            {selectedRequest.applicant_signed_at
+                                                ? selectedRequest.applicant_signed_at.slice(0, 10)
+                                                : 'Signed'}
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="rounded-lg border p-3 text-center text-xs">
-                                    <p className="text-muted-foreground font-semibold">Approved I</p>
-                                    <p className="text-muted-foreground text-[10px]">Asst. Head of Dept</p>
-                                    <p className="mt-4 font-semibold">
-                                        {selectedRequest.approver1?.name ?? 'Pending'}
-                                    </p>
-                                    <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
-                                        {selectedRequest.approved_1_at ? selectedRequest.approved_1_at.slice(0, 10) : '-'}
-                                    </p>
+                                <div className="flex h-20 flex-col justify-between rounded-lg border p-2 text-center text-xs sm:h-24 sm:p-2.5">
+                                    <div>
+                                        <p className="text-muted-foreground font-semibold leading-tight">Approved I</p>
+                                        <p className="text-muted-foreground text-[10px]">Asst. Head of Dept</p>
+                                    </div>
+                                    <div>
+                                        <p className="truncate font-semibold">
+                                            {selectedRequest.approver1?.name ?? 'Pending'}
+                                        </p>
+                                        <p className="text-muted-foreground font-mono text-[10px]">
+                                            {selectedRequest.approved_1_at ? selectedRequest.approved_1_at.slice(0, 10) : '-'}
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="rounded-lg border p-3 text-center text-xs">
-                                    <p className="text-muted-foreground font-semibold">Approved II</p>
-                                    <p className="text-muted-foreground text-[10px]">Dept. Manager</p>
-                                    <p className="mt-4 font-semibold">
-                                        {selectedRequest.approver2?.name ?? 'Pending'}
-                                    </p>
-                                    <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
-                                        {selectedRequest.approved_2_at ? selectedRequest.approved_2_at.slice(0, 10) : '-'}
-                                    </p>
+                                <div className="flex h-20 flex-col justify-between rounded-lg border p-2 text-center text-xs sm:h-24 sm:p-2.5">
+                                    <div>
+                                        <p className="text-muted-foreground font-semibold leading-tight">Approved II</p>
+                                        <p className="text-muted-foreground text-[10px]">Dept. Manager</p>
+                                    </div>
+                                    <div>
+                                        <p className="truncate font-semibold">
+                                            {selectedRequest.approver2?.name ?? 'Pending'}
+                                        </p>
+                                        <p className="text-muted-foreground font-mono text-[10px]">
+                                            {selectedRequest.approved_2_at ? selectedRequest.approved_2_at.slice(0, 10) : '-'}
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="rounded-lg border p-3 text-center text-xs">
-                                    <p className="text-muted-foreground font-semibold">Approve III</p>
-                                    <p className="text-muted-foreground text-[10px]">HRD Verification</p>
-                                    <p className="mt-4 font-semibold">
-                                        {selectedRequest.approver3?.name ?? selectedRequest.approver?.name ?? 'Pending'}
-                                    </p>
-                                    <p className="text-muted-foreground mt-0.5 font-mono text-[10px]">
-                                        {selectedRequest.approved_3_at ? selectedRequest.approved_3_at.slice(0, 10) : '-'}
-                                    </p>
+                                <div className="flex h-20 flex-col justify-between rounded-lg border p-2 text-center text-xs sm:h-24 sm:p-2.5">
+                                    <div>
+                                        <p className="text-muted-foreground font-semibold leading-tight">Approve III</p>
+                                        <p className="text-muted-foreground text-[10px]">HRD Verification</p>
+                                    </div>
+                                    <div>
+                                        <p className="truncate font-semibold">
+                                            {selectedRequest.approver3?.name ?? selectedRequest.approver?.name ?? 'Pending'}
+                                        </p>
+                                        <p className="text-muted-foreground font-mono text-[10px]">
+                                            {selectedRequest.approved_3_at ? selectedRequest.approved_3_at.slice(0, 10) : '-'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <DialogFooter className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                                <Button asChild variant="outline" size="sm">
+                            <DialogFooter className="sticky bottom-0 z-10 flex flex-col gap-2 border-t bg-white pt-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:bg-slate-950">
+                                <Button asChild variant="outline" size="sm" className="min-h-9 w-full sm:w-auto">
                                     <a
                                         href={`/attendance/leave-permits/${selectedRequest.id}/print`}
                                         target="_blank"
@@ -840,11 +978,12 @@ export default function LeaveIndex({
 
                                 {canApprove &&
                                     ['PENDING', 'APPROVED_L1', 'APPROVED_L2'].includes(selectedRequest.status) && (
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                                             <Button
                                                 type="button"
                                                 size="sm"
                                                 variant="outline"
+                                                className="min-h-9 w-full sm:w-auto"
                                                 disabled={reviewForm.processing}
                                                 onClick={() => submitApprovalLevel(1)}
                                             >
@@ -855,6 +994,7 @@ export default function LeaveIndex({
                                                 type="button"
                                                 size="sm"
                                                 variant="outline"
+                                                className="min-h-9 w-full sm:w-auto"
                                                 disabled={reviewForm.processing}
                                                 onClick={() => submitApprovalLevel(2)}
                                             >
@@ -865,6 +1005,7 @@ export default function LeaveIndex({
                                                 <Button
                                                     type="button"
                                                     size="sm"
+                                                    className="min-h-9 w-full sm:w-auto"
                                                     variant={reviewForm.data.is_rejected ? 'destructive' : 'default'}
                                                     disabled={reviewForm.processing}
                                                     onClick={() => submitApprovalLevel(3)}
