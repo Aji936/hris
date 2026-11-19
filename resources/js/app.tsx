@@ -35,6 +35,27 @@ function showBackExitToast(message: string): void {
     }, 2000);
 }
 
+function registerInertiaCsrfAndSessionHandlers(): void {
+    // Keep <meta name="csrf-token"> synchronized across Inertia page navigations
+    router.on('navigate', (event) => {
+        const nextToken = event.detail.page.props?.csrf_token;
+        if (typeof nextToken === 'string' && nextToken.length > 0) {
+            const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
+            if (meta) {
+                meta.content = nextToken;
+            }
+        }
+    });
+
+    // Prevent 419 Page Expired modal popup when session/CSRF token expires; redirect cleanly to /login
+    router.on('invalid', (event) => {
+        if (event.detail.response?.status === 419) {
+            event.preventDefault();
+            window.location.href = '/login';
+        }
+    });
+}
+
 function registerAndroidBackButtonHandler(): void {
     if (!Capacitor.isNativePlatform()) {
         return;
@@ -42,7 +63,9 @@ function registerAndroidBackButtonHandler(): void {
 
     void CapacitorApp.addListener('backButton', ({ canGoBack }) => {
         // 1. If a modal, dialog, or mobile drawer is currently open, close it first
-        const openDialog = document.querySelector<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+        const openDialog = document.querySelector<HTMLElement>(
+            '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+        );
         if (openDialog) {
             const escapeEvent = new KeyboardEvent('keydown', {
                 key: 'Escape',
@@ -97,4 +120,5 @@ createInertiaApp({
 
 // This will set light / dark mode on load...
 initializeTheme();
+registerInertiaCsrfAndSessionHandlers();
 registerAndroidBackButtonHandler();

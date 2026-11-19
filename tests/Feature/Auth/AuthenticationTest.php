@@ -3,6 +3,8 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Contracts\Encryption\Encrypter;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -50,5 +52,28 @@ class AuthenticationTest extends TestCase
 
         $this->assertGuest();
         $response->assertRedirect('/');
+    }
+
+    public function test_logout_with_expired_csrf_token_redirects_cleanly_to_login_instead_of_419()
+    {
+        $user = User::factory()->create();
+
+        $this->app->bind(
+            ValidateCsrfToken::class,
+            fn ($app) => new class($app, $app->make(Encrypter::class)) extends ValidateCsrfToken
+            {
+                protected function runningUnitTests(): bool
+                {
+                    return false;
+                }
+            }
+        );
+
+        $response = $this->actingAs($user)->post('/logout', [
+            '_token' => 'expired-or-mismatched-csrf-token',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login');
     }
 }

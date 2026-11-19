@@ -7,7 +7,18 @@ import { LogOut } from 'lucide-react';
 
 export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: BreadcrumbItemType[] }) {
     const handleLogout = (): void => {
-        router.post(route('logout'));
+        const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+        router.post(
+            route('logout', undefined, false),
+            csrfToken ? { _token: csrfToken } : {},
+            {
+                preserveState: false,
+                preserveScroll: false,
+                onError: () => {
+                    window.location.href = '/login';
+                },
+            },
+        );
     };
 
     return (
