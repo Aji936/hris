@@ -1,9 +1,18 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+} from '@/components/ui/sidebar';
+import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { type NavItem, type SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
-import { CalendarDays, Clock, Landmark, LayoutGrid, ReceiptText, Users } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { CalendarDays, Clock, Landmark, LayoutGrid, LogOut, ReceiptText, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const essNavItems: NavItem[] = [
@@ -32,6 +41,7 @@ const essNavItems: NavItem[] = [
 export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
     const permissions = auth.permissions ?? [];
+    const cleanup = useMobileNavigation();
 
     const hrAdminNavItems: NavItem[] = [];
     if (permissions.includes('employee.view')) {
@@ -48,6 +58,11 @@ export function AppSidebar() {
             icon: Landmark,
         });
     }
+
+    const handleLogout = (): void => {
+        cleanup();
+        router.post(route('logout'));
+    };
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -68,7 +83,20 @@ export function AppSidebar() {
                 {hrAdminNavItems.length > 0 && <NavMain label="HR & Payroll Admin" items={hrAdminNavItems} />}
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="gap-2">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            type="button"
+                            onClick={handleLogout}
+                            tooltip="Log Out"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive min-h-10 font-medium"
+                        >
+                            <LogOut className="size-4 shrink-0" />
+                            <span>Log Out / Keluar</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
