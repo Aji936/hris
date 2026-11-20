@@ -28,12 +28,86 @@ import {
     AlertCircle,
     CalendarPlus,
     CheckCircle2,
+    ChevronDown,
+    ChevronUp,
     Eye,
     FileCheck,
+    Info,
     Paperclip,
     Printer,
 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+
+const LEAVE_PERMIT_NOTES: Array<{ id: number; idText: string; enText: string }> = [
+    {
+        id: 1,
+        idText: 'Jumlah hari berdasarkan pada hari kerja yang sebenarnya.',
+        enText: 'Total of the days is base on the actual working days.',
+    },
+    {
+        id: 2,
+        idText: 'Untuk ijin khusus harap perhatikan peraturan perusahaan dan harus sudah diajukan 1 (satu) hari sebelumnya',
+        enText: 'For Special Permission, please refer to company regulation and must be submitted 1 (one) day before',
+    },
+    {
+        id: 3,
+        idText: 'Untuk keterlambatan atau pulang awal dapat mengambil cuti tahunan selama 0,5 (setengah) hari',
+        enText: 'For late-coming or early leaving could be taken by half day annual leave',
+    },
+    {
+        id: 4,
+        idText: 'Pengajuan cuti tahunan harus sudah diajukan tidak kurang dari 5 (lima) hari sebelumnya dan akan disesuaikan dengan kebutuhan perusahaan.',
+        enText: 'Proposal for taking annual leave must be submitted minimum 5 (five) days before and it will be adjusted according to office business',
+    },
+    {
+        id: 5,
+        idText: 'Karyawan harus terlebih dahulu mendapatkan copy persetujuan aplikasi dari HRD',
+        enText: 'The employee must get the copy of application approval first from HRD',
+    },
+];
+
+function LeavePermitNotesBlock({ collapsibleOnMobile = false }: { collapsibleOnMobile?: boolean }) {
+    const [isOpenMobile, setIsOpenMobile] = useState<boolean>(!collapsibleOnMobile);
+
+    return (
+        <div className="bg-muted/30 rounded-lg border p-3 text-xs sm:p-3.5">
+            {collapsibleOnMobile && (
+                <button
+                    type="button"
+                    onClick={() => setIsOpenMobile((prev) => !prev)}
+                    className="flex w-full items-center justify-between text-left font-semibold sm:hidden"
+                >
+                    <span className="inline-flex items-center gap-1.5">
+                        <Info className="text-primary size-3.5 shrink-0" />
+                        <span>Catatan :</span>
+                        <em className="text-muted-foreground font-normal">Note :</em>
+                    </span>
+                    {isOpenMobile ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                </button>
+            )}
+
+            <div
+                className={`${
+                    collapsibleOnMobile && !isOpenMobile ? 'hidden sm:grid' : 'grid'
+                } ${collapsibleOnMobile && isOpenMobile ? 'mt-2 sm:mt-0' : ''} grid-cols-1 gap-2 sm:grid-cols-[110px_1fr] sm:gap-3`}
+            >
+                <div className={`${collapsibleOnMobile ? 'hidden sm:block' : 'block'} font-semibold leading-snug`}>
+                    <div>Catatan :</div>
+                    <div className="text-muted-foreground font-normal italic">Note :</div>
+                </div>
+
+                <ol className="list-decimal space-y-1.5 pl-4 leading-relaxed">
+                    {LEAVE_PERMIT_NOTES.map((note) => (
+                        <li key={note.id} className="pl-0.5">
+                            <p className="text-foreground font-medium">{note.idText}</p>
+                            <p className="text-muted-foreground italic">{note.enText}</p>
+                        </li>
+                    ))}
+                </ol>
+            </div>
+        </div>
+    );
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -67,6 +141,7 @@ type LeaveFormState = {
     end_date: string;
     start_time: string;
     end_time: string;
+    use_half_day: boolean;
     reason: string;
     attachment: File | null;
 };
@@ -143,6 +218,7 @@ export default function LeaveIndex({
         end_date: todayDate,
         start_time: '',
         end_time: '',
+        use_half_day: false,
         reason: '',
         attachment: null,
     });
@@ -176,12 +252,28 @@ export default function LeaveIndex({
     const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
 
+        const supportsHalfDay = ['LATE_COMING', 'EARLY_LEAVING', 'ANNUAL_LEAVE'].includes(
+            form.data.application_type,
+        );
+
+        form.transform((data) => {
+            const payload: Record<string, unknown> = {
+                ...data,
+            };
+
+            if (supportsHalfDay && data.use_half_day && data.start_date === data.end_date) {
+                payload.total_days = 0.5;
+            }
+
+            return payload;
+        });
+
         form.post('/attendance/leave-requests', {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 setIsDialogOpen(false);
-                form.reset('start_time', 'end_time', 'reason', 'attachment');
+                form.reset('start_time', 'end_time', 'use_half_day', 'reason', 'attachment');
             },
         });
     };
@@ -404,6 +496,30 @@ export default function LeaveIndex({
                                         </div>
                                     )}
 
+                                    {['LATE_COMING', 'EARLY_LEAVING', 'ANNUAL_LEAVE'].includes(
+                                        form.data.application_type,
+                                    ) &&
+                                        form.data.start_date === form.data.end_date && (
+                                            <div className="bg-muted/30 flex items-start space-x-2.5 rounded-lg border p-2.5 text-xs">
+                                                <Checkbox
+                                                    id="use_half_day_chk"
+                                                    checked={form.data.use_half_day}
+                                                    onCheckedChange={(checked) =>
+                                                        form.setData('use_half_day', Boolean(checked))
+                                                    }
+                                                />
+                                                <Label
+                                                    htmlFor="use_half_day_chk"
+                                                    className="cursor-pointer leading-snug font-medium"
+                                                >
+                                                    Ambil Cuti Tahunan 0,5 (Setengah) Hari
+                                                    <span className="text-muted-foreground block font-normal italic">
+                                                        Take 0.5 (half-day) annual leave deduction
+                                                    </span>
+                                                </Label>
+                                            </div>
+                                        )}
+
                                     <div className="grid gap-1.5">
                                         <Label htmlFor="reason" className="text-xs sm:text-sm">
                                             Reason / Contents (Alasan Permohonan)
@@ -445,6 +561,8 @@ export default function LeaveIndex({
                                             <p className="text-destructive text-xs">{formErrors.attachment}</p>
                                         )}
                                     </div>
+
+                                    <LeavePermitNotesBlock collapsibleOnMobile />
 
                                     <DialogFooter className="sticky bottom-0 z-10 border-t bg-white pt-2.5 dark:bg-slate-950">
                                         <Button
@@ -729,6 +847,8 @@ export default function LeaveIndex({
                         </div>
                     </CardContent>
                 </Card>
+
+                <LeavePermitNotesBlock />
             </div>
 
             {/* Multi-Level Approval, HRD Leave Calculation & 4-Signature Form Modal */}
@@ -802,6 +922,7 @@ export default function LeaveIndex({
                                         <Input
                                             id="calc_prev"
                                             type="number"
+                                            step="0.5"
                                             disabled={!isHrd}
                                             className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.previous_leave_balance}
@@ -823,6 +944,7 @@ export default function LeaveIndex({
                                         <Input
                                             id="calc_taken"
                                             type="number"
+                                            step="0.5"
                                             disabled={!isHrd}
                                             className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.current_leave_taken}
@@ -844,6 +966,7 @@ export default function LeaveIndex({
                                         <Input
                                             id="calc_rem"
                                             type="number"
+                                            step="0.5"
                                             disabled={!isHrd}
                                             className="w-full max-w-full text-sm sm:text-base"
                                             value={reviewForm.data.remaining_leave_balance}
@@ -963,6 +1086,9 @@ export default function LeaveIndex({
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Bilingual Catatan / Note Block below Signatures */}
+                            <LeavePermitNotesBlock />
 
                             <DialogFooter className="sticky bottom-0 z-10 flex flex-col gap-2 border-t bg-white pt-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:bg-slate-950">
                                 <Button asChild variant="outline" size="sm" className="min-h-9 w-full sm:w-auto">

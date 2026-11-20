@@ -51,10 +51,12 @@ class LeaveService
         }
 
         $calendarSpanDays = (int) ($startDate->diffInDays($endDate) + 1);
-        $totalDays = isset($data['total_days']) ? (int) $data['total_days'] : $calendarSpanDays;
+        $totalDays = isset($data['total_days']) && $data['total_days'] !== ''
+            ? (LeaveRequest::normalizeDays((float) $data['total_days']) ?? $calendarSpanDays)
+            : $calendarSpanDays;
 
-        if ($totalDays < 1 || $totalDays > $calendarSpanDays) {
-            throw new DomainException("Requested leave days ({$totalDays}) must be between 1 and {$calendarSpanDays}.");
+        if ($totalDays < 0.5 || $totalDays > $calendarSpanDays) {
+            throw new DomainException("Requested leave days ({$totalDays}) must be between 0.5 and {$calendarSpanDays}.");
         }
 
         $reason = trim((string) ($data['reason'] ?? ''));
@@ -100,6 +102,27 @@ class LeaveService
                 year: $balanceYear,
                 lockForUpdate: true,
             );
+
+            // Support 0.5-day annual leave deduction for LATE_COMING / EARLY_LEAVING when employee opts for half-day cuti tahunan
+            if (
+                $leaveBalance === null
+                && (float) $totalDays === 0.5
+                && in_array($permitType, [LeavePermitType::LATE_COMING, LeavePermitType::EARLY_LEAVING], true)
+            ) {
+                $annualLeaveType = LeaveType::query()
+                    ->whereIn('code', ['ANNUAL', 'ANNUAL_LEAVE'])
+                    ->first();
+
+                if ($annualLeaveType !== null) {
+                    $leaveType = $annualLeaveType;
+                    $leaveBalance = $this->leaveBalanceRepository->findForEmployeeYear(
+                        employeeId: $employee->id,
+                        leaveTypeId: $annualLeaveType->id,
+                        year: $balanceYear,
+                        lockForUpdate: true,
+                    );
+                }
+            }
 
             $requiresBalanceQuota = in_array($permitType, [
                 LeavePermitType::ANNUAL_LEAVE,
@@ -391,16 +414,16 @@ class LeaveService
             );
 
             $previousBalance = isset($hrdPayload['previous_leave_balance'])
-                ? (int) $hrdPayload['previous_leave_balance']
-                : ($leaveRequest->previous_leave_balance ?? ($leaveBalance !== null ? $leaveBalance->total_quota - $leaveBalance->used_quota : 0));
+                ? LeaveRequest::normalizeDays((float) $hrdPayload['previous_leave_balance'])
+                : ($leaveRequest->previous_leave_balance ?? ($leaveBalance !== null ? LeaveRequest::normalizeDays($leaveBalance->total_quota - $leaveBalance->used_quota) : 0));
 
             $currentTaken = isset($hrdPayload['current_leave_taken'])
-                ? (int) $hrdPayload['current_leave_taken']
+                ? (LeaveRequest::normalizeDays((float) $hrdPayload['current_leave_taken']) ?? $leaveRequest->total_days)
                 : ($leaveRequest->current_leave_taken ?? $leaveRequest->total_days);
 
             $remainingBalance = isset($hrdPayload['remaining_leave_balance'])
-                ? (int) $hrdPayload['remaining_leave_balance']
-                : ($previousBalance - $currentTaken);
+                ? LeaveRequest::normalizeDays((float) $hrdPayload['remaining_leave_balance'])
+                : LeaveRequest::normalizeDays((float) $previousBalance - (float) $currentTaken);
 
             if ($leaveBalance !== null && $leaveBalance->pending_quota >= $leaveRequest->total_days) {
                 $this->leaveBalanceRepository->update($leaveBalance, [

@@ -6,17 +6,17 @@
     <style>
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 11px;
+            font-size: 10.5px;
             color: #111827;
-            margin: 18px;
+            margin: 10px 14px;
         }
         .form-container {
             border: 2px solid #111827;
-            padding: 14px;
+            padding: 10px 12px;
         }
         .header-title {
             text-align: center;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -24,77 +24,92 @@
         }
         .header-subtitle {
             text-align: center;
-            font-size: 11px;
+            font-size: 10.5px;
             color: #374151;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             border-bottom: 1.5px solid #111827;
-            padding-bottom: 8px;
+            padding-bottom: 6px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
         }
         .meta-table td {
-            padding: 4px 6px;
+            padding: 2.5px 5px;
             vertical-align: top;
         }
         .section-box {
             border: 1px solid #111827;
-            margin-top: 10px;
-            padding: 8px;
+            margin-top: 7px;
+            padding: 6px 8px;
         }
         .section-title {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 10.5px;
             text-transform: uppercase;
             background-color: #f3f4f6;
             border-bottom: 1px solid #111827;
-            margin: -8px -8px 8px -8px;
-            padding: 5px 8px;
+            margin: -6px -8px 6px -8px;
+            padding: 4px 8px;
         }
         .checkbox-grid td {
-            padding: 4px 6px;
+            padding: 3px 5px;
             width: 50%;
         }
         .box-check {
             display: inline-block;
-            width: 13px;
-            height: 13px;
+            width: 12px;
+            height: 12px;
             border: 1.2px solid #111827;
             text-align: center;
-            line-height: 12px;
+            line-height: 11px;
             font-weight: bold;
-            margin-right: 6px;
+            margin-right: 5px;
         }
         .calc-table th, .calc-table td {
             border: 1px solid #111827;
-            padding: 6px 8px;
+            padding: 4px 6px;
             text-align: center;
         }
         .calc-table th {
             background-color: #f9fafb;
-            font-size: 10px;
+            font-size: 9.5px;
         }
         .signature-table {
-            margin-top: 14px;
+            margin-top: 8px;
         }
         .signature-table th, .signature-table td {
             border: 1px solid #111827;
             width: 25%;
             text-align: center;
-            padding: 6px;
+            padding: 4px 5px;
         }
         .signature-table th {
             background-color: #f3f4f6;
-            font-size: 10px;
+            font-size: 9.5px;
         }
         .sig-space {
-            height: 58px;
+            height: 44px;
             vertical-align: bottom !important;
         }
         .muted {
             color: #4b5563;
+            font-size: 9px;
+        }
+        .note-box {
+            border-top: 1.5px solid #111827;
+            margin-top: 8px;
+            padding-top: 6px;
             font-size: 9.5px;
+            line-height: 1.32;
+        }
+        .note-table td {
+            vertical-align: top;
+            padding: 1.5px 2px;
+        }
+        .note-en {
+            font-style: italic;
+            color: #374151;
         }
     </style>
 </head>
@@ -253,6 +268,56 @@
                 </tr>
             </tbody>
         </table>
+
+        <div class="note-box">
+            <table class="note-table">
+                <tr>
+                    <td style="width: 13%; font-weight: bold;">
+                        Catatan :<br>
+                        <span class="note-en" style="font-weight: normal;">Note :</span>
+                    </td>
+                    <td style="width: 87%;">
+                        <table class="note-table">
+                            <tr>
+                                <td style="width: 3%;">1.</td>
+                                <td style="width: 97%;">
+                                    Jumlah hari berdasarkan pada hari kerja yang sebenarnya.<br>
+                                    <span class="note-en">Total of the days is base on the actual working days.</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>2.</td>
+                                <td>
+                                    Untuk ijin khusus harap perhatikan peraturan perusahaan dan harus sudah diajukan 1 (satu) hari sebelumnya<br>
+                                    <span class="note-en">For Special Permission, please refer to company regulation and must be submitted 1 (one) day before</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>3.</td>
+                                <td>
+                                    Untuk keterlambatan atau pulang awal dapat mengambil cuti tahunan selama 0,5 (setengah) hari<br>
+                                    <span class="note-en">For late-coming or early leaving could be taken by half day annual leave</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>4.</td>
+                                <td>
+                                    Pengajuan cuti tahunan harus sudah diajukan tidak kurang dari 5 (lima) hari sebelumnya dan akan disesuaikan dengan kebutuhan perusahaan.<br>
+                                    <span class="note-en">Proposal for taking annual leave must be submitted minimum 5 (five) days before and it will be adjusted according to office business</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>5.</td>
+                                <td>
+                                    Karyawan harus terlebih dahulu mendapatkan copy persetujuan aplikasi dari HRD<br>
+                                    <span class="note-en">The employee must get the copy of application approval first from HRD</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 </body>
 </html>

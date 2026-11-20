@@ -309,4 +309,90 @@ class LeavePermitWorkflowTest extends TestCase
         $this->assertSame(0, $balance->pending_quota);
         $this->assertSame(4, $balance->used_quota);
     }
+
+    public function test_late_coming_or_early_leaving_can_take_half_day_annual_leave_and_pdf_contains_bilingual_notes(): void
+    {
+        $hrdUser = User::factory()->create(['name' => 'HRD Approver']);
+        $hrdUser->assignRole(RoleName::HR_ADMIN->value);
+
+        $employeeUser = User::factory()->create(['name' => 'Dewi Lestari']);
+        $employeeUser->assignRole(RoleName::EMPLOYEE->value);
+        $employee = Employee::factory()->create([
+            'user_id' => $employeeUser->id,
+            'employee_code' => 'EMP-2026-205',
+            'full_name' => 'Dewi Lestari',
+        ]);
+
+        $annualType = LeaveType::factory()->create([
+            'code' => 'ANNUAL',
+            'name' => 'Annual Leave',
+            'default_quota_days' => 12,
+            'is_paid' => true,
+        ]);
+
+        $balance = LeaveBalance::factory()->create([
+            'employee_id' => $employee->id,
+            'leave_type_id' => $annualType->id,
+            'year' => 2026,
+            'total_quota' => 12,
+            'used_quota' => 2,
+            'pending_quota' => 0,
+        ]);
+
+        // Submit Late Coming with 0.5-day annual leave option
+        $createResponse = $this->actingAs($employeeUser)
+            ->postJson(route('attendance.leave-requests.store'), [
+                'leave_type_id' => $annualType->id,
+                'application_type' => LeavePermitType::LATE_COMING->value,
+                'start_date' => '2026-11-23',
+                'end_date' => '2026-11-23',
+                'start_time' => '08:00',
+                'end_time' => '11:30',
+                'total_days' => 0.5,
+                'reason' => 'Keperluan mendadak di pagi hari (potong cuti 0,5 hari)',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.total_days', 0.5)
+            ->assertJsonPath('data.previous_leave_balance', 10)
+            ->assertJsonPath('data.current_leave_taken', 0.5)
+            ->assertJsonPath('data.remaining_leave_balance', 9.5);
+
+        $leaveRequestId = (int) $createResponse->json('data.id');
+
+        $balance->refresh();
+        $this->assertSame(0.5, $balance->pending_quota);
+        $this->assertSame(9.5, $balance->remainingQuota());
+
+        // HRD finalizes Level 3 approval with 0.5 day calculation
+        $this->actingAs($hrdUser)
+            ->postJson(route('attendance.leave-requests.approve', $leaveRequestId), [
+                'level' => 3,
+                'previous_leave_balance' => 10,
+                'current_leave_taken' => 0.5,
+                'remaining_leave_balance' => 9.5,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', LeaveRequestStatus::APPROVED_HRD->value)
+            ->assertJsonPath('data.current_leave_taken', 0.5)
+            ->assertJsonPath('data.remaining_leave_balance', 9.5);
+
+        $balance->refresh();
+        $this->assertSame(0, $balance->pending_quota);
+        $this->assertSame(2.5, $balance->used_quota);
+        $this->assertSame(9.5, $balance->remainingQuota());
+
+        // Verify Blade HTML view contains the exact Indonesian-first bilingual Catatan / Note block
+        $renderedHtml = view('attendance.leave-permit-pdf', [
+            'application' => LeaveRequest::query()->findOrFail($leaveRequestId),
+            'permitTypes' => LeavePermitType::cases(),
+            'companyName' => 'PT HRIS Nusantara',
+        ])->render();
+
+        $this->assertStringContainsString('Catatan :', $renderedHtml);
+        $this->assertStringContainsString('Jumlah hari berdasarkan pada hari kerja yang sebenarnya.', $renderedHtml);
+        $this->assertStringContainsString('Total of the days is base on the actual working days.', $renderedHtml);
+        $this->assertStringContainsString('Untuk keterlambatan atau pulang awal dapat mengambil cuti tahunan selama 0,5 (setengah) hari', $renderedHtml);
+        $this->assertStringContainsString('For late-coming or early leaving could be taken by half day annual leave', $renderedHtml);
+        $this->assertStringContainsString('Karyawan harus terlebih dahulu mendapatkan copy persetujuan aplikasi dari HRD', $renderedHtml);
+    }
 }

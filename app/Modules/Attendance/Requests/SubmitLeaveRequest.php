@@ -29,7 +29,7 @@ class SubmitLeaveRequest extends FormRequest
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'start_time' => ['nullable', 'string', 'max:10'],
             'end_time' => ['nullable', 'string', 'max:10'],
-            'total_days' => ['nullable', 'integer', 'min:1'],
+            'total_days' => ['nullable', 'numeric', 'min:0.5'],
             'reason' => ['required', 'string', 'min:3', 'max:2000'],
             'attachment_path' => ['nullable', 'string', 'max:255'],
             'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],

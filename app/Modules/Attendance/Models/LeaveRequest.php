@@ -67,10 +67,6 @@ class LeaveRequest extends Model
             'application_type' => LeavePermitType::class,
             'start_date' => 'date',
             'end_date' => 'date',
-            'total_days' => 'integer',
-            'previous_leave_balance' => 'integer',
-            'current_leave_taken' => 'integer',
-            'remaining_leave_balance' => 'integer',
             'status' => LeaveRequestStatus::class,
             'is_rejected' => 'boolean',
             'approved_at' => 'datetime',
@@ -79,6 +75,38 @@ class LeaveRequest extends Model
             'approved_2_at' => 'datetime',
             'approved_3_at' => 'datetime',
         ];
+    }
+
+    public static function normalizeDays(float|int|string|null $value): int|float|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $floatVal = round((float) $value, 1);
+        $intVal = (int) $floatVal;
+
+        return abs($floatVal - $intVal) < 0.001 ? $intVal : $floatVal;
+    }
+
+    public function getTotalDaysAttribute(mixed $value): int|float
+    {
+        return self::normalizeDays($value) ?? 0;
+    }
+
+    public function getPreviousLeaveBalanceAttribute(mixed $value): int|float|null
+    {
+        return self::normalizeDays($value);
+    }
+
+    public function getCurrentLeaveTakenAttribute(mixed $value): int|float|null
+    {
+        return self::normalizeDays($value);
+    }
+
+    public function getRemainingLeaveBalanceAttribute(mixed $value): int|float|null
+    {
+        return self::normalizeDays($value);
     }
 
     protected static function newFactory(): LeaveRequestFactory

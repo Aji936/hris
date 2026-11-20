@@ -22,9 +22,9 @@ class ActionLeaveRequest extends FormRequest
     {
         return [
             'level' => ['nullable', 'integer', 'in:1,2,3'],
-            'previous_leave_balance' => ['nullable', 'integer', 'min:0', 'max:365'],
-            'current_leave_taken' => ['nullable', 'integer', 'min:0', 'max:365'],
-            'remaining_leave_balance' => ['nullable', 'integer', 'min:-365', 'max:365'],
+            'previous_leave_balance' => ['nullable', 'numeric', 'min:0', 'max:365'],
+            'current_leave_taken' => ['nullable', 'numeric', 'min:0', 'max:365'],
+            'remaining_leave_balance' => ['nullable', 'numeric', 'min:-365', 'max:365'],
             'is_rejected' => ['nullable', 'boolean'],
             'hrd_other_notes' => ['nullable', 'string', 'max:1000'],
             'rejection_reason' => [

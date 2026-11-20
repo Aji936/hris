@@ -37,9 +37,6 @@ class LeaveBalance extends Model
     {
         return [
             'year' => 'integer',
-            'total_quota' => 'integer',
-            'used_quota' => 'integer',
-            'pending_quota' => 'integer',
         ];
     }
 
@@ -48,9 +45,24 @@ class LeaveBalance extends Model
         return LeaveBalanceFactory::new();
     }
 
-    public function remainingQuota(): int
+    public function getTotalQuotaAttribute(mixed $value): int|float
     {
-        return max(0, $this->total_quota - $this->used_quota - $this->pending_quota);
+        return LeaveRequest::normalizeDays($value) ?? 0;
+    }
+
+    public function getUsedQuotaAttribute(mixed $value): int|float
+    {
+        return LeaveRequest::normalizeDays($value) ?? 0;
+    }
+
+    public function getPendingQuotaAttribute(mixed $value): int|float
+    {
+        return LeaveRequest::normalizeDays($value) ?? 0;
+    }
+
+    public function remainingQuota(): int|float
+    {
+        return LeaveRequest::normalizeDays(max(0, $this->total_quota - $this->used_quota - $this->pending_quota)) ?? 0;
     }
 
     public function employee(): BelongsTo
