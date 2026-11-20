@@ -395,4 +395,62 @@ class LeavePermitWorkflowTest extends TestCase
         $this->assertStringContainsString('For late-coming or early leaving could be taken by half day annual leave', $renderedHtml);
         $this->assertStringContainsString('Karyawan harus terlebih dahulu mendapatkan copy persetujuan aplikasi dari HRD', $renderedHtml);
     }
+
+    public function test_hr_admin_can_set_initial_leave_balance_on_employee_and_manage_single_or_bulk_leave_balances(): void
+    {
+        $hrdUser = User::factory()->create(['name' => 'HRD Manager']);
+        $hrdUser->assignRole(RoleName::HR_ADMIN->value);
+
+        $empA = Employee::factory()->create([
+            'employee_code' => 'EMP-BAL-001',
+            'full_name' => 'Karyawan Satu',
+        ]);
+        $empB = Employee::factory()->create([
+            'employee_code' => 'EMP-BAL-002',
+            'full_name' => 'Karyawan Dua',
+        ]);
+
+        // 1. Bulk initialize annual leave balances (12 days) for all active employees without a balance record
+        $this->actingAs($hrdUser)
+            ->postJson(route('attendance.leave-balances.bulk-init'), [
+                'default_quota' => 12,
+                'overwrite_existing' => false,
+                'adjustment_reason' => 'Saldo awal tahun berjalan',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.initialized_count', 2);
+
+        // 2. Single adjustment with 0.5-day decimal precision and audit reason
+        $this->actingAs($hrdUser)
+            ->putJson(route('attendance.leave-balances.upsert', $empA->id), [
+                'total_quota' => 14.5,
+                'used_quota' => 2.0,
+                'adjustment_reason' => 'Tambahan cuti loyalitas 2,5 hari',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.total_quota', 14.5)
+            ->assertJsonPath('data.used_quota', 2)
+            ->assertJsonPath('data.remaining_quota', 12.5);
+
+        $this->assertTrue(
+            AuditLog::query()
+                ->where('event', 'leave_balance.adjusted')
+                ->exists()
+        );
+
+        // 3. When Emp A submits a 1-day annual leave request, Previous Leave Balance automatically reads 12.5 and Remaining becomes 11.5
+        $empA->user->assignRole(RoleName::EMPLOYEE->value);
+        $this->actingAs($empA->user)
+            ->postJson(route('attendance.leave-requests.store'), [
+                'application_type' => LeavePermitType::ANNUAL_LEAVE->value,
+                'start_date' => '2026-11-25',
+                'end_date' => '2026-11-25',
+                'total_days' => 1,
+                'reason' => 'Urusan keluarga',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.previous_leave_balance', 12.5)
+            ->assertJsonPath('data.current_leave_taken', 1)
+            ->assertJsonPath('data.remaining_leave_balance', 11.5);
+    }
 }

@@ -167,13 +167,31 @@ export interface LeaveApplicantProfile {
     position_title?: string | null;
 }
 
+export interface EmployeeLeaveBalanceRow {
+    employee_id: number;
+    employee_code: string;
+    full_name: string;
+    department_name: string;
+    position_title: string;
+    status: string;
+    year: number;
+    has_balance_record: boolean;
+    leave_balance_id: number | null;
+    total_quota: number;
+    used_quota: number;
+    pending_quota: number;
+    remaining_quota: number;
+}
+
 export interface LeaveBalanceProps {
     currentYear: number;
     hasEmployeeProfile: boolean;
     employeeProfile?: LeaveApplicantProfile | null;
     canApprove?: boolean;
     isHrd?: boolean;
+    initialTab?: 'requests' | 'balances' | string;
     leaveBalances: LeaveBalanceItem[];
+    employeeLeaveBalances?: EmployeeLeaveBalanceRow[];
     leaveTypes: LeaveTypeOption[];
     leaveRequests: LeaveRequestItem[];
 }

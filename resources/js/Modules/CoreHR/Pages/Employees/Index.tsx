@@ -128,6 +128,7 @@ type EmployeeFormData = {
     national_id_number: string;
     tax_id_number: string;
     bank_account_number: string;
+    initial_leave_balance: string;
 };
 
 type EditDepartmentFormData = {
@@ -194,6 +195,7 @@ export default function EmployeeDirectoryIndex({
         national_id_number: '',
         tax_id_number: '',
         bank_account_number: '',
+        initial_leave_balance: '12',
     });
 
     const employeeForm = useForm<EmployeeFormData>({
@@ -217,6 +219,7 @@ export default function EmployeeDirectoryIndex({
         national_id_number: '',
         tax_id_number: '',
         bank_account_number: '',
+        initial_leave_balance: '12',
     });
 
     const departmentForm = useForm<EditDepartmentFormData>({
@@ -268,6 +271,7 @@ export default function EmployeeDirectoryIndex({
             national_id_number: '',
             tax_id_number: '',
             bank_account_number: '',
+            initial_leave_balance: '12',
         });
         createEmployeeForm.clearErrors();
         setIsCreateModalOpen(true);
@@ -284,6 +288,7 @@ export default function EmployeeDirectoryIndex({
             position_id: Number(data.position_id),
             manager_id: data.manager_id === 'none' || data.manager_id === '' ? null : Number(data.manager_id),
             password: data.password.trim() === '' ? undefined : data.password,
+            initial_leave_balance: data.initial_leave_balance === '' ? 12 : Number(data.initial_leave_balance),
         }));
         createEmployeeForm.post('/core-hr/employees', {
             preserveScroll: true,
@@ -315,6 +320,7 @@ export default function EmployeeDirectoryIndex({
             national_id_number: emp.national_id_number ?? '',
             tax_id_number: emp.tax_id_number ?? '',
             bank_account_number: emp.bank_account_number ?? '',
+            initial_leave_balance: String(emp.annual_leave_quota ?? 12),
         });
         employeeForm.clearErrors();
     };
@@ -332,6 +338,8 @@ export default function EmployeeDirectoryIndex({
             department_id: Number(data.department_id),
             position_id: Number(data.position_id),
             manager_id: data.manager_id === 'none' || data.manager_id === '' ? null : Number(data.manager_id),
+            initial_leave_balance:
+                data.initial_leave_balance === '' ? undefined : Number(data.initial_leave_balance),
         }));
         employeeForm.put(`/core-hr/employees/${editingEmployee.id}`, {
             preserveScroll: true,
@@ -872,6 +880,13 @@ export default function EmployeeDirectoryIndex({
                                     <p className="text-muted-foreground text-xs">Salary Grade</p>
                                     <p className="font-medium">{viewingEmployee.salary_grade ?? '-'}</p>
                                 </div>
+                                <div className="col-span-2 border-t pt-2">
+                                    <p className="text-muted-foreground text-xs">Saldo Cuti Tahunan (Tahun Berjalan)</p>
+                                    <p className="font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                        Sisa: {viewingEmployee.annual_leave_remaining ?? viewingEmployee.annual_leave_quota ?? 12} hari (Jatah Awal:{' '}
+                                        {viewingEmployee.annual_leave_quota ?? 12} hari • Terpakai: {viewingEmployee.annual_leave_used ?? 0} hari)
+                                    </p>
+                                </div>
                             </div>
 
                             <DialogFooter>
@@ -1126,6 +1141,32 @@ export default function EmployeeDirectoryIndex({
                                         <SelectItem value="RETIRED">RETIRED</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+
+                            <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor="new_emp_leave_balance">
+                                    Saldo Awal Cuti Tahunan (Initial Annual Leave Quota — Hari)
+                                </Label>
+                                <Input
+                                    id="new_emp_leave_balance"
+                                    type="number"
+                                    step="0.5"
+                                    min={0}
+                                    max={365}
+                                    value={createEmployeeForm.data.initial_leave_balance}
+                                    onChange={(e) =>
+                                        createEmployeeForm.setData('initial_leave_balance', e.target.value)
+                                    }
+                                    required
+                                />
+                                <p className="text-muted-foreground text-xs">
+                                    Default 12 hari (mendukung desimal 0.5 hari). Otomatis tercatat ke tabel saldo cuti tahun berjalan.
+                                </p>
+                                {createEmpErrors.initial_leave_balance && (
+                                    <p className="text-destructive text-xs">
+                                        {createEmpErrors.initial_leave_balance}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -1438,6 +1479,30 @@ export default function EmployeeDirectoryIndex({
                                     onChange={(e) => employeeForm.setData('bank_account_number', e.target.value)}
                                     placeholder="Leave blank to keep existing"
                                 />
+                            </div>
+
+                            <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor="emp_leave_balance">
+                                    Saldo Awal / Jatah Cuti Tahunan (Annual Leave Quota — Hari)
+                                </Label>
+                                <Input
+                                    id="emp_leave_balance"
+                                    type="number"
+                                    step="0.5"
+                                    min={0}
+                                    max={365}
+                                    value={employeeForm.data.initial_leave_balance}
+                                    onChange={(e) =>
+                                        employeeForm.setData('initial_leave_balance', e.target.value)
+                                    }
+                                />
+                                <p className="text-muted-foreground text-xs">
+                                    Terpakai saat ini: {editingEmployee?.annual_leave_used ?? 0} hari • Pending:{' '}
+                                    {editingEmployee?.annual_leave_pending ?? 0} hari • Mendukung angka desimal 0.5 hari.
+                                </p>
+                                {empErrors.initial_leave_balance && (
+                                    <p className="text-destructive text-xs">{empErrors.initial_leave_balance}</p>
+                                )}
                             </div>
                         </div>
 

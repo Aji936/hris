@@ -94,6 +94,8 @@ class StoreEmployeeRequest extends FormRequest
             'tax_id_number' => ['nullable', 'string', 'max:32'],
             'bank_account_number' => ['nullable', 'string', 'max:50'],
             'bank_name' => ['nullable', 'string', 'max:100'],
+            'initial_leave_balance' => ['nullable', 'numeric', 'min:0', 'max:365'],
+            'annual_leave_quota' => ['nullable', 'numeric', 'min:0', 'max:365'],
         ];
     }
 }

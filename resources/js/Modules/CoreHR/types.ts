@@ -62,6 +62,11 @@ export interface EmployeeSummary {
     national_id_number?: string | null;
     tax_id_number?: string | null;
     bank_account_number?: string | null;
+    annual_leave_quota?: number;
+    annual_leave_used?: number;
+    annual_leave_pending?: number;
+    annual_leave_remaining?: number | null;
+    has_annual_leave_balance?: boolean;
     user?: {
         id: number;
         name: string;

@@ -49,4 +49,14 @@ Route::middleware(['auth'])->prefix('attendance')->name('attendance.')->group(fu
         ->whereNumber('leaveType')
         ->middleware('permission:'.PermissionName::EMPLOYEE_UPDATE->value)
         ->name('leave-types.update');
+
+    Route::get('/leave-balances', [LeaveRequestController::class, 'leaveBalancesIndex'])
+        ->name('leave-balances.index');
+
+    Route::post('/leave-balances/bulk-initialize', [LeaveRequestController::class, 'bulkInitializeLeaveBalances'])
+        ->name('leave-balances.bulk-init');
+
+    Route::match(['put', 'patch'], '/leave-balances/{employee}', [LeaveRequestController::class, 'upsertLeaveBalance'])
+        ->whereNumber('employee')
+        ->name('leave-balances.upsert');
 });

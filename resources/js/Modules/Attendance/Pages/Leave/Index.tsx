@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import {
     type BreadcrumbItem,
+    type EmployeeLeaveBalanceRow,
     type LeaveBalanceProps,
     type LeavePermitTypeValue,
     type LeaveRequestItem,
@@ -34,7 +35,10 @@ import {
     FileCheck,
     Info,
     Paperclip,
+    Pencil,
     Printer,
+    Sparkles,
+    Users,
 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
@@ -156,6 +160,18 @@ type ApprovalReviewFormState = {
     hrd_other_notes: string;
 };
 
+type AdjustBalanceFormState = {
+    total_quota: string;
+    used_quota: string;
+    adjustment_reason: string;
+};
+
+type BulkInitBalanceFormState = {
+    default_quota: string;
+    overwrite_existing: boolean;
+    adjustment_reason: string;
+};
+
 function getLeaveStatusBadgeClass(status: LeaveRequestStatusValue): string {
     switch (status) {
         case 'APPROVED':
@@ -192,7 +208,9 @@ export default function LeaveIndex({
     employeeProfile = null,
     canApprove = false,
     isHrd = false,
+    initialTab = 'requests',
     leaveBalances,
+    employeeLeaveBalances = [],
     leaveTypes,
     leaveRequests,
 }: LeaveBalanceProps) {
@@ -200,8 +218,13 @@ export default function LeaveIndex({
     const flash = page.props.flash;
     const todayDate = new Date().toISOString().slice(0, 10);
 
+    const [activeTab, setActiveTab] = useState<'requests' | 'balances'>(
+        isHrd && initialTab === 'balances' ? 'balances' : 'requests',
+    );
     const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequestItem | null>(null);
+    const [editingBalanceRow, setEditingBalanceRow] = useState<EmployeeLeaveBalanceRow | null>(null);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
 
     const findMatchingLeaveTypeId = (appType: LeavePermitTypeValue): string => {
         const preferredCode = appType === 'ANNUAL_LEAVE' ? 'ANNUAL' : appType;
@@ -233,8 +256,29 @@ export default function LeaveIndex({
         hrd_other_notes: '',
     });
 
+    const adjustBalanceForm = useForm<AdjustBalanceFormState>({
+        total_quota: '12',
+        used_quota: '0',
+        adjustment_reason: '',
+    });
+
+    const bulkBalanceForm = useForm<BulkInitBalanceFormState>({
+        default_quota: '12',
+        overwrite_existing: false,
+        adjustment_reason: `Inisialisasi saldo awal cuti tahunan periode ${currentYear}`,
+    });
+
     const formErrors = form.errors as Record<string, string | undefined>;
     const reviewErrors = reviewForm.errors as Record<string, string | undefined>;
+    const adjustErrors = adjustBalanceForm.errors as Record<string, string | undefined>;
+    const bulkErrors = bulkBalanceForm.errors as Record<string, string | undefined>;
+
+    const annualBalanceRecord =
+        leaveBalances.find((b) =>
+            ['ANNUAL', 'ANNUAL_LEAVE'].includes((b.leave_type?.code ?? '').toUpperCase()),
+        ) ??
+        leaveBalances[0] ??
+        null;
 
     const selectedLeaveType = leaveTypes.find((type) => String(type.id) === form.data.leave_type_id) ?? null;
     const selectedPermitMeta = APPLICATION_TYPES.find((item) => item.value === form.data.application_type);
@@ -280,9 +324,14 @@ export default function LeaveIndex({
 
     const openReviewModal = (reqItem: LeaveRequestItem): void => {
         setSelectedRequest(reqItem);
-        const prevBal = reqItem.previous_leave_balance ?? aggregateTotals.remaining;
+        const liveEmpRow = employeeLeaveBalances.find((row) => row.employee_id === reqItem.employee_id);
+        const liveAvailableBeforeRequest = liveEmpRow
+            ? Math.max(0, liveEmpRow.total_quota - liveEmpRow.used_quota)
+            : (annualBalanceRecord?.remaining_quota ?? aggregateTotals.remaining);
+
+        const prevBal = reqItem.previous_leave_balance ?? liveAvailableBeforeRequest;
         const currTaken = reqItem.current_leave_taken ?? reqItem.total_days;
-        const remBal = reqItem.remaining_leave_balance ?? prevBal - currTaken;
+        const remBal = reqItem.remaining_leave_balance ?? Math.max(0, prevBal - currTaken);
 
         const nextSuggestedLevel =
             reqItem.status === 'PENDING' ? 1 : reqItem.status === 'APPROVED_L1' ? 2 : 3;
@@ -297,6 +346,51 @@ export default function LeaveIndex({
             hrd_other_notes: reqItem.hrd_other_notes ?? '',
         });
         reviewForm.clearErrors();
+    };
+
+    const openAdjustBalanceModal = (row: EmployeeLeaveBalanceRow): void => {
+        setEditingBalanceRow(row);
+        adjustBalanceForm.setData({
+            total_quota: String(row.has_balance_record ? row.total_quota : 12),
+            used_quota: String(row.used_quota ?? 0),
+            adjustment_reason: row.has_balance_record
+                ? ''
+                : `Input saldo awal cuti tahunan periode ${currentYear}`,
+        });
+        adjustBalanceForm.clearErrors();
+    };
+
+    const handleAdjustBalanceSubmit = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+        if (!editingBalanceRow) {
+            return;
+        }
+
+        adjustBalanceForm.transform((data) => ({
+            total_quota: Number(data.total_quota || 0),
+            used_quota: Number(data.used_quota || 0),
+            adjustment_reason: data.adjustment_reason,
+        }));
+
+        adjustBalanceForm.put(`/attendance/leave-balances/${editingBalanceRow.employee_id}`, {
+            preserveScroll: true,
+            onSuccess: () => setEditingBalanceRow(null),
+        });
+    };
+
+    const handleBulkInitSubmit = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+
+        bulkBalanceForm.transform((data) => ({
+            default_quota: Number(data.default_quota || 12),
+            overwrite_existing: data.overwrite_existing,
+            adjustment_reason: data.adjustment_reason,
+        }));
+
+        bulkBalanceForm.post('/attendance/leave-balances/bulk-initialize', {
+            preserveScroll: true,
+            onSuccess: () => setIsBulkModalOpen(false),
+        });
     };
 
     const submitApprovalLevel = (level: number): void => {
@@ -383,6 +477,17 @@ export default function LeaveIndex({
                                             <p className="text-muted-foreground">Join Date / Tgl Masuk</p>
                                             <p className="font-mono font-semibold sm:mt-0.5">
                                                 {employeeProfile?.join_date ?? '-'}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t pt-2 sm:col-span-2">
+                                            <p className="text-muted-foreground">
+                                                Previous Leave Balance (Sisa Cuti Tahunan Tersedia)
+                                            </p>
+                                            <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                                {annualBalanceRecord?.remaining_quota ?? aggregateTotals.remaining} hari{' '}
+                                                <span className="text-muted-foreground font-normal">
+                                                    (Jatah Awal: {annualBalanceRecord?.total_quota ?? aggregateTotals.total} hari)
+                                                </span>
                                             </p>
                                         </div>
                                     </div>
@@ -652,6 +757,181 @@ export default function LeaveIndex({
                     </Card>
                 </div>
 
+                {isHrd && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={activeTab === 'requests' ? 'default' : 'outline'}
+                                className="min-h-9"
+                                onClick={() => setActiveTab('requests')}
+                            >
+                                <FileCheck className="size-4" />
+                                Daftar Permohonan Cuti &amp; Izin ({leaveRequests.length})
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={activeTab === 'balances' ? 'default' : 'outline'}
+                                className="min-h-9"
+                                onClick={() => setActiveTab('balances')}
+                            >
+                                <Users className="size-4" />
+                                Kelola Saldo Cuti Karyawan ({employeeLeaveBalances.length})
+                            </Button>
+                        </div>
+
+                        {activeTab === 'balances' && (
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="min-h-9 w-full sm:w-auto"
+                                onClick={() => setIsBulkModalOpen(true)}
+                            >
+                                <Sparkles className="size-4" />
+                                Set Saldo Awal Massal (Bulk Initialize)
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'balances' && isHrd && (
+                    <Card>
+                        <CardHeader className="p-3.5 sm:p-6">
+                            <CardTitle className="text-base sm:text-lg">
+                                Kelola Saldo Awal &amp; Sisa Cuti Tahunan Karyawan ({currentYear})
+                            </CardTitle>
+                            <CardDescription className="text-xs sm:text-sm">
+                                Atur atau sesuaikan saldo awal cuti tahunan karyawan aktif (mendukung 0.5 hari). Nilai Sisa Saldo Cuti akan otomatis menjadi Previous Leave Balance saat pengajuan cuti.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {/* Mobile Card List View */}
+                            <div className="divide-y border-t sm:hidden">
+                                {employeeLeaveBalances.length === 0 ? (
+                                    <div className="text-muted-foreground px-3.5 py-6 text-center text-xs">
+                                        Belum ada data karyawan aktif.
+                                    </div>
+                                ) : (
+                                    employeeLeaveBalances.map((row) => (
+                                        <div key={`bal-mob-${row.employee_id}`} className="flex flex-col gap-2.5 p-3.5 text-xs">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div>
+                                                    <p className="text-sm font-semibold">{row.full_name}</p>
+                                                    <p className="text-muted-foreground font-mono text-[11px]">
+                                                        {row.employee_code} • {row.department_name}
+                                                    </p>
+                                                </div>
+                                                {row.has_balance_record ? (
+                                                    <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                                        Aktif ({row.year})
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                                                        Belum Diisi
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <div className="bg-muted/30 grid grid-cols-3 gap-2 rounded-md border p-2 text-center font-mono">
+                                                <div>
+                                                    <span className="text-muted-foreground block font-sans text-[10px]">Jatah Awal</span>
+                                                    <span className="font-semibold">{row.total_quota} hr</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground block font-sans text-[10px]">Terpakai</span>
+                                                    <span>{row.used_quota} hr</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground block font-sans text-[10px]">Sisa Saldo</span>
+                                                    <strong className="text-emerald-600 dark:text-emerald-400">
+                                                        {row.remaining_quota} hr
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="min-h-9 w-full text-xs"
+                                                onClick={() => openAdjustBalanceModal(row)}
+                                            >
+                                                <Pencil className="size-3.5" />
+                                                Edit / Sesuaikan Saldo Cuti
+                                            </Button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden overflow-x-auto border-t sm:block">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-muted/50 border-b text-xs uppercase">
+                                        <tr>
+                                            <th className="px-4 py-3">NIK / Karyawan</th>
+                                            <th className="px-4 py-3">Departemen &amp; Jabatan</th>
+                                            <th className="px-4 py-3 text-center">Jatah Cuti Awal</th>
+                                            <th className="px-4 py-3 text-center">Cuti Terpakai</th>
+                                            <th className="px-4 py-3 text-center">Pending</th>
+                                            <th className="px-4 py-3 text-center">Sisa Saldo Cuti (Remaining)</th>
+                                            <th className="px-4 py-3 text-right">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {employeeLeaveBalances.map((row) => (
+                                            <tr key={`bal-row-${row.employee_id}`} className="hover:bg-muted/30 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <p className="font-medium">{row.full_name}</p>
+                                                    <p className="text-muted-foreground font-mono text-xs">{row.employee_code}</p>
+                                                </td>
+                                                <td className="px-4 py-3 text-xs">
+                                                    <p className="font-medium">{row.department_name}</p>
+                                                    <p className="text-muted-foreground">{row.position_title}</p>
+                                                </td>
+                                                <td className="px-4 py-3 text-center font-mono font-semibold">
+                                                    {row.total_quota} hari
+                                                </td>
+                                                <td className="px-4 py-3 text-center font-mono">
+                                                    {row.used_quota} hari
+                                                </td>
+                                                <td className="px-4 py-3 text-center font-mono text-amber-600 dark:text-amber-400">
+                                                    {row.pending_quota} hari
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={
+                                                            row.has_balance_record
+                                                                ? 'border-emerald-500/40 bg-emerald-500/10 font-mono text-emerald-700 dark:text-emerald-300'
+                                                                : 'border-amber-500/40 bg-amber-500/10 font-mono text-amber-700 dark:text-amber-300'
+                                                        }
+                                                    >
+                                                        {row.remaining_quota} hari {!row.has_balance_record && '(Belum Diisi)'}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="min-h-9"
+                                                        onClick={() => openAdjustBalanceModal(row)}
+                                                    >
+                                                        <Pencil className="size-3.5" />
+                                                        Edit Saldo
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {activeTab === 'requests' && (
                 <Card>
                     <CardHeader className="p-3.5 sm:p-6">
                         <CardTitle className="text-base sm:text-lg">Leave &amp; Permit Applications</CardTitle>
@@ -847,9 +1127,185 @@ export default function LeaveIndex({
                         </div>
                     </CardContent>
                 </Card>
+                )}
 
                 <LeavePermitNotesBlock />
             </div>
+
+            {/* Modal Edit / Penyesuaian Saldo Cuti Satuan (HR Admin / Superadmin) */}
+            <Dialog open={editingBalanceRow !== null} onOpenChange={(open) => !open && setEditingBalanceRow(null)}>
+                <DialogContent className="max-h-[88vh] w-[95vw] max-w-full overflow-y-auto p-3.5 sm:max-w-md sm:p-6">
+                    {editingBalanceRow && (
+                        <form onSubmit={handleAdjustBalanceSubmit} className="flex flex-col gap-3.5">
+                            <DialogHeader>
+                                <DialogTitle className="text-base sm:text-lg">
+                                    Penyesuaian Saldo Cuti — {editingBalanceRow.full_name}
+                                </DialogTitle>
+                                <DialogDescription className="text-xs sm:text-sm">
+                                    {editingBalanceRow.employee_code} • Periode Tahun {currentYear}
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="adj_total_quota" className="text-xs sm:text-sm">
+                                        Jatah Cuti Awal (Hari)
+                                    </Label>
+                                    <Input
+                                        id="adj_total_quota"
+                                        type="number"
+                                        step="0.5"
+                                        min={0}
+                                        max={365}
+                                        value={adjustBalanceForm.data.total_quota}
+                                        onChange={(e) => adjustBalanceForm.setData('total_quota', e.target.value)}
+                                        required
+                                    />
+                                    {adjustErrors.total_quota && (
+                                        <p className="text-destructive text-xs">{adjustErrors.total_quota}</p>
+                                    )}
+                                </div>
+
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="adj_used_quota" className="text-xs sm:text-sm">
+                                        Cuti Terpakai (Hari)
+                                    </Label>
+                                    <Input
+                                        id="adj_used_quota"
+                                        type="number"
+                                        step="0.5"
+                                        min={0}
+                                        max={365}
+                                        value={adjustBalanceForm.data.used_quota}
+                                        onChange={(e) => adjustBalanceForm.setData('used_quota', e.target.value)}
+                                        required
+                                    />
+                                    {adjustErrors.used_quota && (
+                                        <p className="text-destructive text-xs">{adjustErrors.used_quota}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-muted/30 flex items-center justify-between rounded-lg border p-3 text-xs sm:text-sm">
+                                <span className="text-muted-foreground">Estimasi Sisa Saldo Cuti (Remaining):</span>
+                                <strong className="font-mono text-emerald-600 dark:text-emerald-400">
+                                    {Math.max(
+                                        0,
+                                        Number(adjustBalanceForm.data.total_quota || 0) -
+                                            Number(adjustBalanceForm.data.used_quota || 0) -
+                                            (editingBalanceRow.pending_quota ?? 0),
+                                    )}{' '}
+                                    hari
+                                </strong>
+                            </div>
+
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="adj_reason" className="text-xs sm:text-sm">
+                                    Alasan Penyesuaian (Adjustment Reason)
+                                </Label>
+                                <Input
+                                    id="adj_reason"
+                                    value={adjustBalanceForm.data.adjustment_reason}
+                                    onChange={(e) => adjustBalanceForm.setData('adjustment_reason', e.target.value)}
+                                    placeholder="Contoh: Penyesuaian sisa cuti tahunan hasil migrasi HRIS"
+                                    required
+                                />
+                                {adjustErrors.adjustment_reason && (
+                                    <p className="text-destructive text-xs">{adjustErrors.adjustment_reason}</p>
+                                )}
+                            </div>
+
+                            <DialogFooter className="gap-2 pt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setEditingBalanceRow(null)}
+                                    disabled={adjustBalanceForm.processing}
+                                >
+                                    Batal
+                                </Button>
+                                <Button type="submit" disabled={adjustBalanceForm.processing}>
+                                    {adjustBalanceForm.processing ? 'Menyimpan...' : 'Simpan Saldo Cuti'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal Set Saldo Awal Massal / Bulk Initialize (HR Admin / Superadmin) */}
+            <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
+                <DialogContent className="max-h-[88vh] w-[95vw] max-w-full overflow-y-auto p-3.5 sm:max-w-md sm:p-6">
+                    <form onSubmit={handleBulkInitSubmit} className="flex flex-col gap-3.5">
+                        <DialogHeader>
+                            <DialogTitle className="text-base sm:text-lg">
+                                Set Saldo Awal Cuti Tahunan Massal ({currentYear})
+                            </DialogTitle>
+                            <DialogDescription className="text-xs sm:text-sm">
+                                Inisialisasi jatah cuti tahunan sekaligus bagi seluruh karyawan aktif yang belum memiliki saldo cuti di tahun berjalan.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="bulk_default_quota" className="text-xs sm:text-sm">
+                                Jatah Cuti Tahunan Default (Hari)
+                            </Label>
+                            <Input
+                                id="bulk_default_quota"
+                                type="number"
+                                step="0.5"
+                                min={0}
+                                max={365}
+                                value={bulkBalanceForm.data.default_quota}
+                                onChange={(e) => bulkBalanceForm.setData('default_quota', e.target.value)}
+                                required
+                            />
+                            {bulkErrors.default_quota && (
+                                <p className="text-destructive text-xs">{bulkErrors.default_quota}</p>
+                            )}
+                        </div>
+
+                        <div className="flex items-start space-x-2 rounded-lg border p-3 text-xs">
+                            <Checkbox
+                                id="bulk_overwrite"
+                                checked={bulkBalanceForm.data.overwrite_existing}
+                                onCheckedChange={(checked) =>
+                                    bulkBalanceForm.setData('overwrite_existing', Boolean(checked))
+                                }
+                            />
+                            <Label htmlFor="bulk_overwrite" className="cursor-pointer leading-snug">
+                                Timpa juga jatah awal karyawan yang sudah memiliki saldo cuti tahun {currentYear}
+                            </Label>
+                        </div>
+
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="bulk_reason" className="text-xs sm:text-sm">
+                                Catatan Audit (Adjustment Reason)
+                            </Label>
+                            <Input
+                                id="bulk_reason"
+                                value={bulkBalanceForm.data.adjustment_reason}
+                                onChange={(e) => bulkBalanceForm.setData('adjustment_reason', e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsBulkModalOpen(false)}
+                                disabled={bulkBalanceForm.processing}
+                            >
+                                Batal
+                            </Button>
+                            <Button type="submit" disabled={bulkBalanceForm.processing}>
+                                {bulkBalanceForm.processing ? 'Memproses...' : 'Inisialisasi Saldo Massal'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Multi-Level Approval, HRD Leave Calculation & 4-Signature Form Modal */}
             <Dialog open={selectedRequest !== null} onOpenChange={(open) => !open && setSelectedRequest(null)}>

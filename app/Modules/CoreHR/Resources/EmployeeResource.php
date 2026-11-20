@@ -26,6 +26,15 @@ class EmployeeResource extends JsonResource
             || (int) $this->user_id === (int) $actor->id
         );
 
+        $annualBalance = null;
+        if ($this->relationLoaded('leaveBalances')) {
+            $annualBalance = $this->leaveBalances->first(static function ($bal): bool {
+                $code = strtoupper((string) ($bal->leaveType?->code ?? ''));
+
+                return in_array($code, ['ANNUAL', 'ANNUAL_LEAVE'], true);
+            }) ?? $this->leaveBalances->first();
+        }
+
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
@@ -43,6 +52,11 @@ class EmployeeResource extends JsonResource
             'status' => $this->status->value,
             'salary_grade' => $this->salary_grade,
             'bank_name' => $this->bank_name,
+            'annual_leave_quota' => $annualBalance !== null ? $annualBalance->total_quota : 12,
+            'annual_leave_used' => $annualBalance !== null ? $annualBalance->used_quota : 0,
+            'annual_leave_pending' => $annualBalance !== null ? $annualBalance->pending_quota : 0,
+            'annual_leave_remaining' => $annualBalance !== null ? $annualBalance->remainingQuota() : null,
+            'has_annual_leave_balance' => $annualBalance !== null,
             'user' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user?->id,
                 'name' => $this->user?->name,

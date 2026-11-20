@@ -18,6 +18,7 @@ use App\Modules\Attendance\Resources\LeaveRequestResource;
 use App\Modules\Attendance\Services\LeavePermitPdfService;
 use App\Modules\Attendance\Services\LeaveService;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
+use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\RBAC\Enums\PermissionName;
 use App\Modules\RBAC\Enums\RoleName;
@@ -95,6 +96,51 @@ class LeaveRequestController extends Controller
             ->values()
             ->all();
 
+        $isHrd = $actor->hasRole([RoleName::HR_ADMIN->value, RoleName::SUPERADMIN->value])
+            || $actor->can(PermissionName::EMPLOYEE_UPDATE->value);
+
+        $employeeLeaveBalances = [];
+        if ($isHrd) {
+            $annualType = $this->leaveService->resolveAnnualLeaveType();
+
+            $activeEmployees = Employee::query()
+                ->with([
+                    'department:id,code,name',
+                    'position:id,code,title',
+                    'leaveBalances' => static fn ($q) => $q
+                        ->where('year', $currentYear)
+                        ->where('leave_type_id', $annualType->id),
+                ])
+                ->whereIn('status', [
+                    EmploymentStatus::PERMANENT->value,
+                    EmploymentStatus::PROBATION->value,
+                    EmploymentStatus::CONTRACT->value,
+                ])
+                ->orderBy('employee_code')
+                ->get();
+
+            $employeeLeaveBalances = $activeEmployees->map(static function (Employee $emp) use ($currentYear): array {
+                /** @var LeaveBalance|null $bal */
+                $bal = $emp->leaveBalances->first();
+
+                return [
+                    'employee_id' => $emp->id,
+                    'employee_code' => $emp->employee_code,
+                    'full_name' => $emp->full_name,
+                    'department_name' => $emp->department?->name ?? '-',
+                    'position_title' => $emp->position?->title ?? '-',
+                    'status' => $emp->status->value,
+                    'year' => $currentYear,
+                    'has_balance_record' => $bal !== null,
+                    'leave_balance_id' => $bal?->id,
+                    'total_quota' => $bal !== null ? $bal->total_quota : 0,
+                    'used_quota' => $bal !== null ? $bal->used_quota : 0,
+                    'pending_quota' => $bal !== null ? $bal->pending_quota : 0,
+                    'remaining_quota' => $bal !== null ? $bal->remainingQuota() : 0,
+                ];
+            })->values()->all();
+        }
+
         return Inertia::render('Attendance/Leave/Index', [
             'currentYear' => $currentYear,
             'hasEmployeeProfile' => $employee !== null,
@@ -107,11 +153,90 @@ class LeaveRequestController extends Controller
                 'position_title' => $employee->position?->title,
             ],
             'canApprove' => $actor->can(PermissionName::LEAVE_APPROVE->value),
-            'isHrd' => $actor->hasRole([RoleName::HR_ADMIN->value, RoleName::SUPERADMIN->value]),
+            'isHrd' => $isHrd,
+            'initialTab' => (string) $request->query('tab', 'requests'),
             'leaveBalances' => $balances,
+            'employeeLeaveBalances' => $employeeLeaveBalances,
             'leaveTypes' => $leaveTypes,
             'leaveRequests' => LeaveRequestResource::collection($records->getCollection())->resolve(),
         ]);
+    }
+
+    public function leaveBalancesIndex(Request $request): JsonResponse|InertiaResponse
+    {
+        $request->merge(['tab' => 'balances']);
+
+        return $this->index($request);
+    }
+
+    public function upsertLeaveBalance(Request $request, Employee $employee): JsonResponse|RedirectResponse
+    {
+        abort_unless(
+            (bool) ($request->user()?->hasRole([RoleName::HR_ADMIN->value, RoleName::SUPERADMIN->value])
+                || $request->user()?->can(PermissionName::EMPLOYEE_UPDATE->value)),
+            403,
+        );
+
+        $validated = $request->validate([
+            'year' => ['nullable', 'integer', 'min:2020', 'max:2100'],
+            'total_quota' => ['required', 'numeric', 'min:0', 'max:365'],
+            'used_quota' => ['nullable', 'numeric', 'min:0', 'max:365'],
+            'pending_quota' => ['nullable', 'numeric', 'min:0', 'max:365'],
+            'adjustment_reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $balance = $this->leaveService->adjustEmployeeLeaveBalance($employee, $validated);
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Saldo cuti karyawan berhasil diperbarui.',
+                'data' => [
+                    'id' => $balance->id,
+                    'employee_id' => $balance->employee_id,
+                    'year' => $balance->year,
+                    'total_quota' => $balance->total_quota,
+                    'used_quota' => $balance->used_quota,
+                    'pending_quota' => $balance->pending_quota,
+                    'remaining_quota' => $balance->remainingQuota(),
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', "Saldo cuti tahunan {$employee->full_name} berhasil diperbarui.");
+    }
+
+    public function bulkInitializeLeaveBalances(Request $request): JsonResponse|RedirectResponse
+    {
+        abort_unless(
+            (bool) ($request->user()?->hasRole([RoleName::HR_ADMIN->value, RoleName::SUPERADMIN->value])
+                || $request->user()?->can(PermissionName::EMPLOYEE_UPDATE->value)),
+            403,
+        );
+
+        $validated = $request->validate([
+            'default_quota' => ['required', 'numeric', 'min:0', 'max:365'],
+            'year' => ['nullable', 'integer', 'min:2020', 'max:2100'],
+            'overwrite_existing' => ['nullable', 'boolean'],
+            'adjustment_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $count = $this->leaveService->bulkInitializeAnnualLeaveBalances(
+            defaultQuota: (float) $validated['default_quota'],
+            year: isset($validated['year']) ? (int) $validated['year'] : (int) now()->year,
+            overwriteExisting: (bool) ($validated['overwrite_existing'] ?? false),
+            adjustmentReason: $validated['adjustment_reason'] ?? null,
+        );
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => "Saldo awal cuti tahunan berhasil diinisialisasi untuk {$count} karyawan.",
+                'data' => [
+                    'initialized_count' => $count,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', "Saldo awal cuti tahunan berhasil diinisialisasi untuk {$count} karyawan aktif.");
     }
 
     public function show(int|string $id): JsonResponse

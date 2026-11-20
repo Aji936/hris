@@ -24,12 +24,15 @@ class EmployeeRepository extends BaseRepository implements EmployeeRepositoryInt
 
     public function paginateDirectory(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
+        $currentYear = (int) now()->year;
+
         return $this->query()
             ->with([
                 'user:id,name,email,is_active',
                 'department:id,code,name',
                 'position:id,code,title,level',
                 'manager:id,employee_code,full_name',
+                'leaveBalances' => static fn ($q) => $q->where('year', $currentYear)->with('leaveType:id,code,name'),
             ])
             ->when(
                 ! empty($filters['department_id']),
@@ -74,9 +77,18 @@ class EmployeeRepository extends BaseRepository implements EmployeeRepositoryInt
 
     public function findWithRelations(int|string $id): Employee
     {
+        $currentYear = (int) now()->year;
+
         /** @var Employee $employee */
         $employee = $this->query()
-            ->with(['user', 'department', 'position', 'manager', 'subordinates'])
+            ->with([
+                'user',
+                'department',
+                'position',
+                'manager',
+                'subordinates',
+                'leaveBalances' => static fn ($q) => $q->where('year', $currentYear)->with('leaveType:id,code,name'),
+            ])
             ->findOrFail($id);
 
         return $employee;

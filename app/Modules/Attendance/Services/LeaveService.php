@@ -10,9 +10,11 @@ use App\Modules\Attendance\Contracts\LeaveRequestRepositoryInterface;
 use App\Modules\Attendance\Contracts\LeaveTypeRepositoryInterface;
 use App\Modules\Attendance\Enums\LeavePermitType;
 use App\Modules\Attendance\Enums\LeaveRequestStatus;
+use App\Modules\Attendance\Models\LeaveBalance;
 use App\Modules\Attendance\Models\LeaveRequest;
 use App\Modules\Attendance\Models\LeaveType;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
+use App\Modules\CoreHR\Enums\EmploymentStatus;
 use App\Modules\CoreHR\Models\Employee;
 use App\Modules\RBAC\Enums\PermissionName;
 use App\Modules\RBAC\Enums\RoleName;
@@ -587,6 +589,179 @@ class LeaveService
 
             return $updated;
         });
+    }
+
+    /**
+     * Set or adjust an employee's Annual Leave balance for a given year and record an immutable audit trail.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function adjustEmployeeLeaveBalance(Employee $employee, array $data): LeaveBalance
+    {
+        return DB::transaction(function () use ($employee, $data): LeaveBalance {
+            $year = isset($data['year']) ? (int) $data['year'] : (int) now()->year;
+            $annualType = $this->resolveAnnualLeaveType();
+
+            /** @var LeaveBalance|null $existing */
+            $existing = LeaveBalance::query()
+                ->where('employee_id', $employee->id)
+                ->where('leave_type_id', $annualType->id)
+                ->where('year', $year)
+                ->lockForUpdate()
+                ->first();
+
+            $oldValues = $existing !== null ? [
+                'year' => $existing->year,
+                'total_quota' => $existing->total_quota,
+                'used_quota' => $existing->used_quota,
+                'pending_quota' => $existing->pending_quota,
+                'remaining_quota' => $existing->remainingQuota(),
+            ] : null;
+
+            $totalQuota = isset($data['total_quota'])
+                ? (LeaveRequest::normalizeDays((float) $data['total_quota']) ?? 12)
+                : ($existing !== null ? $existing->total_quota : 12);
+
+            $usedQuota = isset($data['used_quota']) && $data['used_quota'] !== ''
+                ? (LeaveRequest::normalizeDays((float) $data['used_quota']) ?? 0)
+                : ($existing !== null ? $existing->used_quota : 0);
+
+            $pendingQuota = isset($data['pending_quota']) && $data['pending_quota'] !== ''
+                ? (LeaveRequest::normalizeDays((float) $data['pending_quota']) ?? 0)
+                : ($existing !== null ? $existing->pending_quota : 0);
+
+            /** @var LeaveBalance $balance */
+            $balance = LeaveBalance::query()->updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'leave_type_id' => $annualType->id,
+                    'year' => $year,
+                ],
+                [
+                    'total_quota' => $totalQuota,
+                    'used_quota' => $usedQuota,
+                    'pending_quota' => $pendingQuota,
+                ],
+            );
+
+            $this->auditLogService->record(
+                event: $oldValues === null ? 'leave_balance.initialized' : 'leave_balance.adjusted',
+                auditable: $balance,
+                oldValues: $oldValues,
+                newValues: [
+                    'employee_id' => $employee->id,
+                    'employee_code' => $employee->employee_code,
+                    'year' => $year,
+                    'total_quota' => $balance->total_quota,
+                    'used_quota' => $balance->used_quota,
+                    'pending_quota' => $balance->pending_quota,
+                    'remaining_quota' => $balance->remainingQuota(),
+                    'adjustment_reason' => (string) ($data['adjustment_reason'] ?? 'Penyesuaian saldo cuti tahunan oleh HRD'),
+                ],
+            );
+
+            return $balance->load('leaveType');
+        });
+    }
+
+    /**
+     * Bulk-initialize annual leave balances for all active employees who do not have a balance record in the target year.
+     */
+    public function bulkInitializeAnnualLeaveBalances(
+        float|int $defaultQuota = 12,
+        ?int $year = null,
+        bool $overwriteExisting = false,
+        ?string $adjustmentReason = null,
+    ): int {
+        return DB::transaction(function () use ($defaultQuota, $year, $overwriteExisting, $adjustmentReason): int {
+            $targetYear = $year ?? (int) now()->year;
+            $normalizedQuota = LeaveRequest::normalizeDays($defaultQuota) ?? 12;
+            $annualType = $this->resolveAnnualLeaveType();
+
+            $activeEmployees = Employee::query()
+                ->whereIn('status', [
+                    EmploymentStatus::PERMANENT->value,
+                    EmploymentStatus::PROBATION->value,
+                    EmploymentStatus::CONTRACT->value,
+                ])
+                ->orderBy('id')
+                ->get();
+
+            $affectedCount = 0;
+
+            foreach ($activeEmployees as $employee) {
+                /** @var LeaveBalance|null $existing */
+                $existing = LeaveBalance::query()
+                    ->where('employee_id', $employee->id)
+                    ->where('leave_type_id', $annualType->id)
+                    ->where('year', $targetYear)
+                    ->first();
+
+                if ($existing !== null && ! $overwriteExisting) {
+                    continue;
+                }
+
+                $oldValues = $existing !== null ? [
+                    'total_quota' => $existing->total_quota,
+                    'used_quota' => $existing->used_quota,
+                    'pending_quota' => $existing->pending_quota,
+                ] : null;
+
+                /** @var LeaveBalance $balance */
+                $balance = LeaveBalance::query()->updateOrCreate(
+                    [
+                        'employee_id' => $employee->id,
+                        'leave_type_id' => $annualType->id,
+                        'year' => $targetYear,
+                    ],
+                    [
+                        'total_quota' => $normalizedQuota,
+                        'used_quota' => $existing !== null ? $existing->used_quota : 0,
+                        'pending_quota' => $existing !== null ? $existing->pending_quota : 0,
+                    ],
+                );
+
+                $this->auditLogService->record(
+                    event: 'leave_balance.bulk_initialized',
+                    auditable: $balance,
+                    oldValues: $oldValues,
+                    newValues: [
+                        'employee_id' => $employee->id,
+                        'employee_code' => $employee->employee_code,
+                        'year' => $targetYear,
+                        'total_quota' => $balance->total_quota,
+                        'used_quota' => $balance->used_quota,
+                        'pending_quota' => $balance->pending_quota,
+                        'remaining_quota' => $balance->remainingQuota(),
+                        'adjustment_reason' => $adjustmentReason ?? 'Inisialisasi saldo awal cuti tahunan massal oleh HRD',
+                    ],
+                );
+
+                $affectedCount++;
+            }
+
+            return $affectedCount;
+        });
+    }
+
+    public function resolveAnnualLeaveType(): LeaveType
+    {
+        $annualType = LeaveType::query()
+            ->whereIn('code', ['ANNUAL', 'ANNUAL_LEAVE'])
+            ->first();
+
+        if ($annualType === null) {
+            $annualType = LeaveType::query()->create([
+                'code' => 'ANNUAL',
+                'name' => 'Annual Leave / Cuti Tahunan',
+                'default_quota_days' => 12,
+                'is_paid' => true,
+                'requires_attachment' => false,
+                'is_active' => true,
+            ]);
+        }
+
+        return $annualType;
     }
 
     /**

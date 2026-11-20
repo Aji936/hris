@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\CoreHR\Services;
 
 use App\Models\User;
+use App\Modules\Attendance\Models\LeaveBalance;
+use App\Modules\Attendance\Models\LeaveRequest;
+use App\Modules\Attendance\Models\LeaveType;
 use App\Modules\CoreHR\Contracts\EmployeeRepositoryInterface;
 use App\Modules\CoreHR\Contracts\PositionRepositoryInterface;
 use App\Modules\CoreHR\Enums\EmploymentStatus;
@@ -116,7 +119,16 @@ class EmployeeOnboardingService
 
             event(new EmployeeOnboarded($employee));
 
-            return $employee->load(['user', 'department', 'position', 'manager']);
+            $initialLeaveQuota = $payload['initial_leave_balance'] ?? $payload['annual_leave_quota'] ?? null;
+            if ($initialLeaveQuota !== null && $initialLeaveQuota !== '') {
+                $this->syncAnnualLeaveBalance(
+                    employee: $employee,
+                    targetQuota: (float) $initialLeaveQuota,
+                    adjustmentReason: 'Saldo awal cuti tahunan saat onboarding karyawan baru',
+                );
+            }
+
+            return $employee->load(['user', 'department', 'position', 'manager', 'leaveBalances.leaveType']);
         });
     }
 
@@ -197,14 +209,29 @@ class EmployeeOnboardingService
                 $userUpdates['email'] = trim((string) $payload['email']);
             }
 
+            $leaveQuotaInput = $payload['initial_leave_balance'] ?? $payload['annual_leave_quota'] ?? null;
+
             $employeePayload = $payload;
-            unset($employeePayload['name'], $employeePayload['email']);
+            unset(
+                $employeePayload['name'],
+                $employeePayload['email'],
+                $employeePayload['initial_leave_balance'],
+                $employeePayload['annual_leave_quota'],
+            );
 
             /** @var Employee $updated */
             $updated = $this->employeeRepository->update($employee, $employeePayload);
 
             if ($userUpdates !== [] && $updated->user !== null) {
                 $updated->user->update($userUpdates);
+            }
+
+            if ($leaveQuotaInput !== null && $leaveQuotaInput !== '') {
+                $this->syncAnnualLeaveBalance(
+                    employee: $updated,
+                    targetQuota: (float) $leaveQuotaInput,
+                    adjustmentReason: 'Pembaruan saldo awal cuti tahunan melalui Edit Data Karyawan',
+                );
             }
 
             $auditNewValues = $payload;
@@ -218,7 +245,7 @@ class EmployeeOnboardingService
                 newValues: $this->sanitizeAuditPayload($auditNewValues),
             );
 
-            return $updated->load(['user', 'department', 'position', 'manager']);
+            return $updated->load(['user', 'department', 'position', 'manager', 'leaveBalances.leaveType']);
         });
     }
 
@@ -298,5 +325,76 @@ class EmployeeOnboardingService
         }
 
         return $data;
+    }
+
+    public function syncAnnualLeaveBalance(
+        Employee $employee,
+        float|int $targetQuota,
+        ?string $adjustmentReason = null,
+    ): LeaveBalance {
+        $year = (int) now()->year;
+        $normalizedQuota = LeaveRequest::normalizeDays($targetQuota) ?? 12;
+
+        $annualType = LeaveType::query()
+            ->whereIn('code', ['ANNUAL', 'ANNUAL_LEAVE'])
+            ->first();
+
+        if ($annualType === null) {
+            $annualType = LeaveType::query()->create([
+                'code' => 'ANNUAL',
+                'name' => 'Annual Leave / Cuti Tahunan',
+                'default_quota_days' => 12,
+                'is_paid' => true,
+                'requires_attachment' => false,
+                'is_active' => true,
+            ]);
+        }
+
+        /** @var LeaveBalance|null $existing */
+        $existing = LeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->where('leave_type_id', $annualType->id)
+            ->where('year', $year)
+            ->first();
+
+        $oldValues = $existing !== null ? [
+            'year' => $existing->year,
+            'total_quota' => $existing->total_quota,
+            'used_quota' => $existing->used_quota,
+            'pending_quota' => $existing->pending_quota,
+            'remaining_quota' => $existing->remainingQuota(),
+        ] : null;
+
+        /** @var LeaveBalance $balance */
+        $balance = LeaveBalance::query()->updateOrCreate(
+            [
+                'employee_id' => $employee->id,
+                'leave_type_id' => $annualType->id,
+                'year' => $year,
+            ],
+            [
+                'total_quota' => $normalizedQuota,
+                'used_quota' => $existing !== null ? $existing->used_quota : 0,
+                'pending_quota' => $existing !== null ? $existing->pending_quota : 0,
+            ],
+        );
+
+        $this->auditLogService->record(
+            event: $oldValues === null ? 'leave_balance.initialized' : 'leave_balance.adjusted',
+            auditable: $balance,
+            oldValues: $oldValues,
+            newValues: [
+                'employee_id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+                'year' => $year,
+                'total_quota' => $balance->total_quota,
+                'used_quota' => $balance->used_quota,
+                'pending_quota' => $balance->pending_quota,
+                'remaining_quota' => $balance->remainingQuota(),
+                'adjustment_reason' => $adjustmentReason ?? 'Set via Employee Master Data',
+            ],
+        );
+
+        return $balance;
     }
 }
