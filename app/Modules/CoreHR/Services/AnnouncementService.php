@@ -6,12 +6,14 @@ namespace App\Modules\CoreHR\Services;
 
 use App\Modules\CoreHR\Enums\AnnouncementCategory;
 use App\Modules\CoreHR\Models\Announcement;
+use App\Modules\CoreHR\Models\AnnouncementRead;
 use App\Modules\RBAC\Services\AuditLogService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class AnnouncementService
 {
@@ -145,6 +147,81 @@ class AnnouncementService
             );
 
             $announcement->delete();
+        });
+    }
+
+    public function markAsRead(Announcement $announcement, int $userId, ?string $ipAddress = null): AnnouncementRead
+    {
+        return DB::transaction(function () use ($announcement, $userId, $ipAddress): AnnouncementRead {
+            /** @var AnnouncementRead $readRecord */
+            $readRecord = AnnouncementRead::query()->firstOrNew([
+                'announcement_id' => $announcement->id,
+                'user_id' => $userId,
+            ]);
+
+            if ($readRecord->read_at === null) {
+                $readRecord->read_at = now();
+            }
+
+            if ($ipAddress !== null) {
+                $readRecord->ip_address = $ipAddress;
+            }
+
+            $readRecord->save();
+
+            return $readRecord;
+        });
+    }
+
+    public function acknowledgePolicy(Announcement $announcement, int $userId, ?string $ipAddress = null): AnnouncementRead
+    {
+        if ($announcement->category !== AnnouncementCategory::POLICY) {
+            throw ValidationException::withMessages([
+                'category' => 'Konfirmasi persetujuan hanya berlaku untuk pengumuman dengan kategori Kebijakan HR (POLICY).',
+            ]);
+        }
+
+        return DB::transaction(function () use ($announcement, $userId, $ipAddress): AnnouncementRead {
+            /** @var AnnouncementRead $readRecord */
+            $readRecord = AnnouncementRead::query()->firstOrNew([
+                'announcement_id' => $announcement->id,
+                'user_id' => $userId,
+            ]);
+
+            $now = now();
+
+            if ($readRecord->read_at === null) {
+                $readRecord->read_at = $now;
+            }
+
+            $wasAlreadyAcknowledged = $readRecord->acknowledged_at !== null;
+            if (! $wasAlreadyAcknowledged) {
+                $readRecord->acknowledged_at = $now;
+            }
+
+            if ($ipAddress !== null) {
+                $readRecord->ip_address = $ipAddress;
+            }
+
+            $readRecord->save();
+
+            $this->auditLogService->record(
+                event: 'announcement.acknowledged',
+                auditable: $announcement,
+                oldValues: null,
+                newValues: [
+                    'announcement_id' => $announcement->id,
+                    'title' => $announcement->title,
+                    'category' => $announcement->category->value,
+                    'user_id' => $userId,
+                    'read_at' => $readRecord->read_at?->toDateTimeString(),
+                    'acknowledged_at' => $readRecord->acknowledged_at?->toDateTimeString(),
+                    'ip_address' => $readRecord->ip_address,
+                ],
+                actorId: $userId,
+            );
+
+            return $readRecord;
         });
     }
 }

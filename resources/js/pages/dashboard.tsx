@@ -16,16 +16,20 @@ import {
     AlertTriangle,
     ArrowRight,
     CalendarDays,
+    CheckCircle2,
     Clock,
     Download,
+    FileCheck2,
     Megaphone,
     Pin,
     Plus,
     ReceiptText,
+    ShieldAlert,
     ShieldCheck,
+    Sparkles,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -35,6 +39,18 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export type AnnouncementCategoryValue = 'INFO' | 'POLICY' | 'EVENT' | 'URGENT';
+
+export interface AnnouncementRecipientStatus {
+    user_id: number;
+    employee_code: string;
+    full_name: string;
+    department_name: string;
+    position_title: string;
+    is_read: boolean;
+    read_at: string | null;
+    is_acknowledged: boolean;
+    acknowledged_at: string | null;
+}
 
 export interface AnnouncementItem {
     id: number;
@@ -51,6 +67,24 @@ export interface AnnouncementItem {
     expires_at: string | null;
     expires_date: string | null;
     author_name: string;
+    is_read?: boolean;
+    read_at?: string | null;
+    read_at_formatted?: string | null;
+    is_acknowledged?: boolean;
+    acknowledged_at?: string | null;
+    acknowledged_at_formatted?: string | null;
+    read_count?: number;
+    acknowledged_count?: number;
+    total_recipients?: number;
+    recipient_statuses?: AnnouncementRecipientStatus[];
+}
+
+export function getXsrfToken(): string {
+    if (typeof document === 'undefined') {
+        return '';
+    }
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
 }
 
 export interface ApproachingRetirementItem {
@@ -95,7 +129,116 @@ export default function Dashboard({
     const permissions = auth.permissions ?? [];
     const canViewDirectory = permissions.includes('employee.view');
 
+    const [announcementList, setAnnouncementList] = useState<AnnouncementItem[]>(announcements);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementItem | null>(null);
+    const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
+
+    useEffect(() => {
+        setAnnouncementList(announcements);
+    }, [announcements]);
+
+    const handleOpenAnnouncement = (item: AnnouncementItem): void => {
+        const nowFormatted = new Date().toISOString().slice(0, 16).replace('T', ' ');
+        const optimisticItem: AnnouncementItem = {
+            ...item,
+            is_read: true,
+            read_at_formatted: item.read_at_formatted ?? nowFormatted,
+        };
+
+        setSelectedAnnouncement(optimisticItem);
+        setAnnouncementList((prev) =>
+            prev.map((ann) => (ann.id === item.id ? { ...ann, is_read: true, read_at_formatted: ann.read_at_formatted ?? nowFormatted } : ann)),
+        );
+
+        void fetch(`/announcements/${item.id}/read`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': getXsrfToken(),
+            },
+        })
+            .then(async (res) => {
+                if (!res.ok) {
+                    return;
+                }
+                const payload = (await res.json()) as {
+                    data?: {
+                        is_read?: boolean;
+                        read_at_formatted?: string | null;
+                        is_acknowledged?: boolean;
+                        acknowledged_at_formatted?: string | null;
+                    };
+                };
+                if (payload?.data) {
+                    const updatedFields = {
+                        is_read: Boolean(payload.data.is_read ?? true),
+                        read_at_formatted: payload.data.read_at_formatted ?? nowFormatted,
+                        is_acknowledged: Boolean(payload.data.is_acknowledged ?? item.is_acknowledged),
+                        acknowledged_at_formatted:
+                            payload.data.acknowledged_at_formatted ?? item.acknowledged_at_formatted ?? null,
+                    };
+                    setAnnouncementList((prev) =>
+                        prev.map((ann) => (ann.id === item.id ? { ...ann, ...updatedFields } : ann)),
+                    );
+                    setSelectedAnnouncement((curr) =>
+                        curr && curr.id === item.id ? { ...curr, ...updatedFields } : curr,
+                    );
+                }
+            })
+            .catch(() => {
+                // Keep optimistic UI state on transient network error
+            });
+    };
+
+    const handleAcknowledgePolicy = async (item: AnnouncementItem): Promise<void> => {
+        if (item.category !== 'POLICY' || item.is_acknowledged || isAcknowledging) {
+            return;
+        }
+
+        setIsAcknowledging(true);
+        try {
+            const response = await fetch(`/announcements/${item.id}/acknowledge`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': getXsrfToken(),
+                },
+            });
+
+            if (response.ok) {
+                const payload = (await response.json()) as {
+                    data?: {
+                        is_read?: boolean;
+                        read_at_formatted?: string | null;
+                        is_acknowledged?: boolean;
+                        acknowledged_at_formatted?: string | null;
+                    };
+                };
+                const nowFormatted = new Date().toISOString().slice(0, 16).replace('T', ' ');
+                const updatedFields = {
+                    is_read: true,
+                    read_at_formatted: payload.data?.read_at_formatted ?? item.read_at_formatted ?? nowFormatted,
+                    is_acknowledged: true,
+                    acknowledged_at_formatted: payload.data?.acknowledged_at_formatted ?? nowFormatted,
+                };
+
+                setAnnouncementList((prev) =>
+                    prev.map((ann) => (ann.id === item.id ? { ...ann, ...updatedFields } : ann)),
+                );
+                setSelectedAnnouncement((curr) =>
+                    curr && curr.id === item.id ? { ...curr, ...updatedFields } : curr,
+                );
+            }
+        } finally {
+            setIsAcknowledging(false);
+        }
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -153,63 +296,102 @@ export default function Dashboard({
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-                        {announcements.length === 0 ? (
+                        {announcementList.length === 0 ? (
                             <div className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-xs sm:text-sm">
                                 Belum ada pengumuman perusahaan yang aktif saat ini.
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                {announcements.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() => setSelectedAnnouncement(item)}
-                                        className={`hover:border-primary/40 hover:bg-muted/30 group flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 text-left transition-all ${
-                                            item.is_pinned ? 'border-amber-500/40 bg-amber-500/[0.03]' : ''
-                                        }`}
-                                    >
-                                        <div className="w-full space-y-1.5">
-                                            <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    <Badge
-                                                        variant="outline"
-                                                        className={`text-[11px] ${getAnnouncementCategoryBadgeClass(item.category)}`}
-                                                    >
-                                                        {item.category_label}
-                                                    </Badge>
-                                                    {item.is_pinned && (
+                                {announcementList.map((item) => {
+                                    const isUnread = item.is_read === false;
+                                    const needsAcknowledge =
+                                        item.category === 'POLICY' && item.is_acknowledged === false;
+
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => handleOpenAnnouncement(item)}
+                                            className={`hover:border-primary/40 hover:bg-muted/30 group flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 text-left transition-all ${
+                                                item.is_pinned ? 'border-amber-500/40 bg-amber-500/[0.03]' : ''
+                                            } ${isUnread ? 'ring-primary/20 border-primary/30 ring-1' : ''}`}
+                                        >
+                                            <div className="w-full space-y-1.5">
+                                                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                                    <div className="flex flex-wrap items-center gap-1.5">
                                                         <Badge
                                                             variant="outline"
-                                                            className="gap-1 border-amber-500/40 bg-amber-500/10 text-[11px] text-amber-700 dark:text-amber-300"
+                                                            className={`text-[11px] ${getAnnouncementCategoryBadgeClass(item.category)}`}
                                                         >
-                                                            <Pin className="size-3" />
-                                                            Disematkan
+                                                            {item.category_label}
                                                         </Badge>
-                                                    )}
+                                                        {item.is_pinned && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="gap-1 border-amber-500/40 bg-amber-500/10 text-[11px] text-amber-700 dark:text-amber-300"
+                                                            >
+                                                                <Pin className="size-3" />
+                                                                Disematkan
+                                                            </Badge>
+                                                        )}
+                                                        {isUnread && (
+                                                            <Badge
+                                                                variant="default"
+                                                                className="gap-1 bg-blue-600 text-[11px] text-white hover:bg-blue-600"
+                                                            >
+                                                                <Sparkles className="size-3" />
+                                                                Baru / Belum Dibaca
+                                                            </Badge>
+                                                        )}
+                                                        {needsAcknowledge && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="gap-1 border-rose-500/50 bg-rose-500/10 text-[11px] font-semibold text-rose-700 dark:text-rose-300"
+                                                            >
+                                                                <ShieldAlert className="size-3" />
+                                                                Wajib Konfirmasi
+                                                            </Badge>
+                                                        )}
+                                                        {item.category === 'POLICY' && item.is_acknowledged && (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-300"
+                                                            >
+                                                                <CheckCircle2 className="size-3" />
+                                                                Sudah Dikonfirmasi
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-muted-foreground font-mono text-[11px]">
+                                                        {item.published_date ?? '-'}
+                                                    </span>
                                                 </div>
-                                                <span className="text-muted-foreground font-mono text-[11px]">
-                                                    {item.published_date ?? '-'}
+                                                <h3 className="group-hover:text-primary line-clamp-1 flex items-center gap-1.5 text-sm font-semibold sm:text-base">
+                                                    {isUnread && (
+                                                        <span
+                                                            className="inline-block size-2 shrink-0 rounded-full bg-blue-600"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                    <span className="truncate">{item.title}</span>
+                                                </h3>
+                                                <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed sm:text-sm">
+                                                    {item.content}
+                                                </p>
+                                            </div>
+
+                                            <div className="flex w-full items-center justify-between border-t pt-2 text-[11px]">
+                                                <span className="text-muted-foreground truncate">
+                                                    Oleh: <strong className="font-medium">{item.author_name}</strong>
+                                                </span>
+                                                <span className="text-primary inline-flex items-center gap-1 font-medium">
+                                                    Baca Selengkapnya
+                                                    <ArrowRight className="size-3" />
                                                 </span>
                                             </div>
-                                            <h3 className="group-hover:text-primary line-clamp-1 text-sm font-semibold sm:text-base">
-                                                {item.title}
-                                            </h3>
-                                            <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed sm:text-sm">
-                                                {item.content}
-                                            </p>
-                                        </div>
-
-                                        <div className="flex w-full items-center justify-between border-t pt-2 text-[11px]">
-                                            <span className="text-muted-foreground truncate">
-                                                Oleh: <strong className="font-medium">{item.author_name}</strong>
-                                            </span>
-                                            <span className="text-primary inline-flex items-center gap-1 font-medium">
-                                                Baca Selengkapnya
-                                                <ArrowRight className="size-3" />
-                                            </span>
-                                        </div>
-                                    </button>
-                                ))}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                     </CardContent>
@@ -387,6 +569,46 @@ export default function Dashboard({
                             <div className="bg-muted/20 rounded-lg border p-3.5 text-sm leading-relaxed whitespace-pre-line">
                                 {selectedAnnouncement.content}
                             </div>
+
+                            {selectedAnnouncement.category === 'POLICY' && (
+                                <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/[0.04] p-3.5">
+                                    {selectedAnnouncement.is_acknowledged ? (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge
+                                                variant="outline"
+                                                className="gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                                            >
+                                                <CheckCircle2 className="size-3.5 shrink-0" />
+                                                Sudah Dikonfirmasi pada{' '}
+                                                {selectedAnnouncement.acknowledged_at_formatted ?? 'Hari ini'}
+                                            </Badge>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="space-y-0.5 text-xs">
+                                                <p className="font-semibold text-indigo-950 dark:text-indigo-200">
+                                                    Konfirmasi Persetujuan Kebijakan HR
+                                                </p>
+                                                <p className="text-muted-foreground">
+                                                    Mohon tekan tombol konfirmasi di bawah sebagai bukti Anda telah membaca dan memahami kebijakan ini.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                disabled={isAcknowledging}
+                                                onClick={() => void handleAcknowledgePolicy(selectedAnnouncement)}
+                                                className="min-h-10 w-full shrink-0 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
+                                            >
+                                                <FileCheck2 className="size-4" />
+                                                {isAcknowledging
+                                                    ? 'Mengonfirmasi...'
+                                                    : 'Saya Sudah Membaca & Memahami'}
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <DialogFooter className="sticky bottom-0 z-10 flex flex-col gap-2 border-t bg-white pt-2.5 sm:flex-row sm:justify-between dark:bg-slate-950">
                                 {selectedAnnouncement.attachment_url ? (

@@ -10,6 +10,9 @@ use App\Shared\Traits\HasAuditColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class Announcement extends Model
 {
@@ -48,6 +51,59 @@ class Announcement extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * @return HasMany<AnnouncementRead, $this>
+     */
+    public function reads(): HasMany
+    {
+        return $this->hasMany(AnnouncementRead::class, 'announcement_id');
+    }
+
+    public function readRecordFor(?int $userId = null): ?AnnouncementRead
+    {
+        $targetUserId = $userId ?? (Auth::id() !== null ? (int) Auth::id() : null);
+        if ($targetUserId === null) {
+            return null;
+        }
+
+        if ($this->relationLoaded('reads')) {
+            /** @var AnnouncementRead|null $record */
+            $record = $this->reads->firstWhere('user_id', $targetUserId);
+
+            return $record;
+        }
+
+        if (! Schema::hasTable('announcement_reads')) {
+            return null;
+        }
+
+        return $this->reads()->where('user_id', $targetUserId)->first();
+    }
+
+    public function isReadBy(?int $userId = null): bool
+    {
+        $record = $this->readRecordFor($userId);
+
+        return $record !== null && $record->read_at !== null;
+    }
+
+    public function isAcknowledgedBy(?int $userId = null): bool
+    {
+        $record = $this->readRecordFor($userId);
+
+        return $record !== null && $record->acknowledged_at !== null;
+    }
+
+    public function getIsReadAttribute(): bool
+    {
+        return $this->isReadBy();
+    }
+
+    public function getIsAcknowledgedAttribute(): bool
+    {
+        return $this->isAcknowledgedBy();
     }
 
     /**

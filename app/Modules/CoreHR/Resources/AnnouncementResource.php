@@ -18,6 +18,17 @@ class AnnouncementResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $userId = $request->user()?->id !== null ? (int) $request->user()->id : null;
+        $userRead = $this->readRecordFor($userId);
+
+        $readCount = $this->relationLoaded('reads')
+            ? $this->reads->whereNotNull('read_at')->count()
+            : (int) ($this->getAttribute('read_count') ?? 0);
+
+        $acknowledgedCount = $this->relationLoaded('reads')
+            ? $this->reads->whereNotNull('acknowledged_at')->count()
+            : (int) ($this->getAttribute('acknowledged_count') ?? 0);
+
         return [
             'id' => $this->id,
             'title' => $this->title,
@@ -37,6 +48,16 @@ class AnnouncementResource extends JsonResource
             'created_by' => $this->created_by,
             'author_name' => $this->whenLoaded('creator', fn () => $this->creator?->name, 'HR Department'),
             'created_at' => $this->created_at?->toISOString(),
+            'is_read' => $userRead !== null && $userRead->read_at !== null,
+            'read_at' => $userRead?->read_at?->toISOString(),
+            'read_at_formatted' => $userRead?->read_at?->format('Y-m-d H:i'),
+            'is_acknowledged' => $userRead !== null && $userRead->acknowledged_at !== null,
+            'acknowledged_at' => $userRead?->acknowledged_at?->toISOString(),
+            'acknowledged_at_formatted' => $userRead?->acknowledged_at?->format('Y-m-d H:i'),
+            'read_count' => $readCount,
+            'acknowledged_count' => $acknowledgedCount,
+            'total_recipients' => (int) ($this->getAttribute('total_recipients') ?? 0),
+            'recipient_statuses' => $this->getAttribute('recipient_statuses') ?? [],
         ];
     }
 }

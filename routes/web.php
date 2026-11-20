@@ -57,12 +57,17 @@ Route::middleware(['auth'])->group(function () {
 
         $announcements = [];
         if (Schema::hasTable('announcements')) {
+            $announcementQuery = Announcement::query()
+                ->with('creator:id,name')
+                ->visible()
+                ->limit(5);
+
+            if ($actor !== null && Schema::hasTable('announcement_reads')) {
+                $announcementQuery->with(['reads' => static fn ($q) => $q->where('user_id', $actor->id)]);
+            }
+
             $announcements = AnnouncementResource::collection(
-                Announcement::query()
-                    ->with('creator:id,name')
-                    ->visible()
-                    ->limit(5)
-                    ->get()
+                $announcementQuery->get()
             )->resolve();
         }
 
@@ -90,6 +95,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/announcements/{announcement}/attachment', [AnnouncementController::class, 'downloadAttachment'])
         ->whereNumber('announcement')
         ->name('announcements.attachment');
+
+    Route::post('/announcements/{announcement}/read', [AnnouncementController::class, 'markAsRead'])
+        ->whereNumber('announcement')
+        ->name('announcements.read');
+
+    Route::post('/announcements/{announcement}/acknowledge', [AnnouncementController::class, 'acknowledge'])
+        ->whereNumber('announcement')
+        ->name('announcements.acknowledge');
 });
 
 require __DIR__.'/payroll.php';

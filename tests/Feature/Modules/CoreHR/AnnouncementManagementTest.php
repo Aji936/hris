@@ -7,6 +7,7 @@ namespace Tests\Feature\Modules\CoreHR;
 use App\Models\User;
 use App\Modules\CoreHR\Enums\AnnouncementCategory;
 use App\Modules\CoreHR\Models\Announcement;
+use App\Modules\CoreHR\Models\AnnouncementRead;
 use App\Modules\RBAC\Enums\RoleName;
 use App\Modules\RBAC\Models\AuditLog;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -211,5 +212,119 @@ class AnnouncementManagementTest extends TestCase
                 ->deleteJson(route('announcements.destroy', $announcement->id))
                 ->assertForbidden();
         }
+    }
+
+    public function test_employee_can_mark_announcement_as_read_and_acknowledge_policy_with_audit_log_and_hr_tracking(): void
+    {
+        $hrAdmin = User::factory()->create(['name' => 'HR Admin Utama']);
+        $hrAdmin->assignRole(RoleName::HR_ADMIN->value);
+
+        $employeeA = User::factory()->create(['name' => 'Budi Santoso']);
+        $employeeA->assignRole(RoleName::EMPLOYEE->value);
+
+        $employeeB = User::factory()->create(['name' => 'Siti Aminah']);
+        $employeeB->assignRole(RoleName::EMPLOYEE->value);
+
+        $policyAnnouncement = Announcement::query()->create([
+            'title' => 'Kebijakan Kepatuhan Keamanan Data & Jam Kerja 2026',
+            'category' => AnnouncementCategory::POLICY->value,
+            'content' => 'Seluruh karyawan wajib mematuhi SOP keamanan data perusahaan.',
+            'is_pinned' => true,
+            'is_active' => true,
+            'published_at' => now()->subMinutes(10),
+            'created_by' => $hrAdmin->id,
+        ]);
+
+        $infoAnnouncement = Announcement::query()->create([
+            'title' => 'Info Pemeliharaan Server Internal',
+            'category' => AnnouncementCategory::INFO->value,
+            'content' => 'Server akan mengalami maintenance hari Sabtu pukul 22:00 WIB.',
+            'is_pinned' => false,
+            'is_active' => true,
+            'published_at' => now()->subMinutes(5),
+            'created_by' => $hrAdmin->id,
+        ]);
+
+        // Initially unread and unacknowledged for Employee A on Dashboard
+        $this->actingAs($employeeA)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(
+                fn (AssertableInertia $page) => $page
+                    ->component('dashboard')
+                    ->where('announcements.0.id', $policyAnnouncement->id)
+                    ->where('announcements.0.is_read', false)
+                    ->where('announcements.0.is_acknowledged', false)
+            );
+
+        // 1. Employee A opens detail modal -> marks policy announcement as read
+        $this->actingAs($employeeA)
+            ->postJson(route('announcements.read', $policyAnnouncement->id))
+            ->assertOk()
+            ->assertJsonPath('data.is_read', true)
+            ->assertJsonPath('data.is_acknowledged', false);
+
+        // Repeated read call does not duplicate pivot row
+        $this->actingAs($employeeA)
+            ->postJson(route('announcements.read', $policyAnnouncement->id))
+            ->assertOk();
+
+        $this->assertSame(
+            1,
+            AnnouncementRead::query()
+                ->where('announcement_id', $policyAnnouncement->id)
+                ->where('user_id', $employeeA->id)
+                ->count()
+        );
+
+        // 2. Employee A acknowledges POLICY announcement
+        $this->actingAs($employeeA)
+            ->postJson(route('announcements.acknowledge', $policyAnnouncement->id))
+            ->assertOk()
+            ->assertJsonPath('data.is_read', true)
+            ->assertJsonPath('data.is_acknowledged', true);
+
+        $this->assertTrue(
+            $policyAnnouncement->fresh()->isReadBy($employeeA->id)
+        );
+        $this->assertTrue(
+            $policyAnnouncement->fresh()->isAcknowledgedBy($employeeA->id)
+        );
+
+        $this->assertTrue(
+            AuditLog::query()
+                ->where('auditable_type', Announcement::class)
+                ->where('auditable_id', (string) $policyAnnouncement->id)
+                ->where('event', 'announcement.acknowledged')
+                ->where('actor_id', $employeeA->id)
+                ->exists()
+        );
+
+        // 3. Attempting to acknowledge a non-POLICY (INFO) announcement returns 422 validation error
+        $this->actingAs($employeeA)
+            ->postJson(route('announcements.acknowledge', $infoAnnouncement->id))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
+
+        // 4. HR Admin views announcements management and gets read/acknowledge counts & recipient statuses
+        $hrIndexResponse = $this->actingAs($hrAdmin)
+            ->getJson(route('announcements.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $policyAnnouncement->id)
+            ->assertJsonPath('data.0.read_count', 1)
+            ->assertJsonPath('data.0.acknowledged_count', 1)
+            ->assertJsonPath('data.0.total_recipients', 3);
+
+        $recipientStatuses = collect($hrIndexResponse->json('data.0.recipient_statuses'));
+        $empAStatus = $recipientStatuses->firstWhere('user_id', $employeeA->id);
+        $empBStatus = $recipientStatuses->firstWhere('user_id', $employeeB->id);
+
+        $this->assertNotNull($empAStatus);
+        $this->assertTrue((bool) $empAStatus['is_read']);
+        $this->assertTrue((bool) $empAStatus['is_acknowledged']);
+
+        $this->assertNotNull($empBStatus);
+        $this->assertFalse((bool) $empBStatus['is_read']);
+        $this->assertFalse((bool) $empBStatus['is_acknowledged']);
     }
 }
